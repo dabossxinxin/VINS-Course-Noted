@@ -22,6 +22,7 @@ Edge::Edge(int residual_dimension, int num_verticies,
     Eigen::MatrixXd information(residual_dimension, residual_dimension);
     information.setIdentity();
     information_ = information;
+	sqrt_information_ = Eigen::LLT<MatXX>(information_).matrixL().transpose();
 
     lossfunction_ = NULL;
 //    cout<<"Edge construct residual_dimension="<<residual_dimension
@@ -48,9 +49,8 @@ double Edge::RobustChi2() const{
     return e2;
 }
 void Edge::RobustInfo(double &drho, MatXX &info) const{
-    if(lossfunction_)
-    {
-//        double e2 = residual_.transpose() * information_ * residual_;
+	/* 若当前边设置了鲁棒核函数 */
+    if(lossfunction_) {
         double e2 = this->Chi2();
         Eigen::Vector3d rho;
         lossfunction_->Compute(e2,rho);
@@ -59,15 +59,14 @@ void Edge::RobustInfo(double &drho, MatXX &info) const{
         MatXX robust_info(information_.rows(), information_.cols());
         robust_info.setIdentity();
         robust_info *= rho[1];
-        if(rho[1] + 2 * rho[2] * e2 > 0.)
-        {
+        if(rho[1] + 2 * rho[2] * e2 > 0.) {
             robust_info += 2 * rho[2] * weight_err * weight_err.transpose();
         }
 
         info = robust_info * information_;
         drho = rho[1];
-    }else
-    {
+	/* 若当前边没有设置了鲁棒核函数 */
+    } else {
         drho = 1.0;
         info = information_;
     }

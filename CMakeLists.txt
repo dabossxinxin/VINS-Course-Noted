@@ -8,6 +8,7 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+add_definitions(-DUSE_OPENMP)
 add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
 
 include(FindGlew)
@@ -18,18 +19,18 @@ include(FindEigen3)
 include(FindOpenCV)
 include(FindPangolin)
 
+include_directories(${GLOG_INCLUDE_DIRS})
+include_directories(${GLEW_INCLUDE_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${GFLAGS_INCLUDE_DIRS})
-include_directories(${GLOG_INCLUDE_DIRS})
 include_directories(${CERES_INCLUDE_DIRS})
 include_directories(${OpenCV3_INCLUDE_DIR})
 include_directories(${Pangolin_INCLUDE_DIRS})
-include_directories(${GLEW_INCLUDE_DIRS})
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 ########################################################
-#													   #	
+#													   #
 #				  ±‡“Îcamera modelø‚			       #
 #													   #	
 ########################################################
@@ -84,7 +85,7 @@ foreach(_var ${GFLAGS_LIBRARIES})
 endforeach()
 
 ########################################################
-#													   #	
+#													   #
 #			±‡“Îvisual inertial odometryø‚			   #
 #													   #	
 ########################################################

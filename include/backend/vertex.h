@@ -1,84 +1,150 @@
-﻿#ifndef MYSLAM_BACKEND_VERTEX_H
-#define MYSLAM_BACKEND_VERTEX_H
+﻿#pragma once
 
 #include "eigen_types.h"
 
 namespace myslam {
 namespace backend {
+
+/*!< @brief 全局参数：记录顶点ID */
 extern unsigned long global_vertex_id;
-/**
- * @brief 顶点，对应一个parameter block
- * 变量值以VecX存储，需要在构造时指定维度
+
+ /**
+ * 优化问题顶点：需要定义优化变量的维度
  */
 class Vertex {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
-    /**
-     * 构造函数
-     * @param num_dimension 顶点自身维度
-     * @param local_dimension 本地参数化维度，为-1时认为与本身维度一样
-     */
-    explicit Vertex(int num_dimension, int local_dimension = -1);
+	/*!
+	*  @brief 顶点构造函数
+	*  @param[in]  num_dimension	顶点自身的维度
+	*  @param[in]  local_dimension	顶点参与优化时的参数化维度
+	*/
+	explicit Vertex(int num_dimension, int local_dimension = -1);
 
+	/*!
+	*  @brief 顶点析构函数
+	*/
     virtual ~Vertex();
 
-    /// 返回变量维度
+	/*!
+	*  @brief 获取变量自身的维度
+	*  @return	int	变量自身维度
+	*/
     int Dimension() const;
 
-    /// 返回变量本地维度
+	/*!
+	*  @brief 获取变量参与优化时的参数化维度
+	*  @return	int	变量参与优化时的参数化维度
+	*/
     int LocalDimension() const;
 
-    /// 该顶点的id
-    unsigned long Id() const { return id_; }
+	/*!
+	*  @brief 获取当前顶点的ID
+	*  @return	unsigned long	当前顶点ID
+	*/
+    unsigned long Id() const { 
+		return id_; 
+	}
 
-    /// 返回参数值
-    VecX Parameters() const { return parameters_; }
+	/*!
+	*  @brief 获取当前顶点参数值
+	*  @return	VecX	当前顶点参数值
+	*/
+    VecX Parameters() const { 
+		return parameters_; 
+	}
 
-    /// 返回参数值的引用
-    VecX &Parameters() { return parameters_; }
+	/*!
+	*  @brief 获取当前顶点参数值的引用
+	*  @return	VecX&	当前顶点参数值的引用
+	*/
+    VecX &Parameters() {
+		return parameters_; 
+	}
 
-    /// 设置参数值
-    void SetParameters(const VecX &params) { parameters_ = params; }
+	/*!
+	*  @brief 设置当前顶点的参数值：设定顶点初始值时使用
+	*  @param[in]	params	顶点参数值初始值
+	*/
+    void SetParameters(const VecX &params) { 
+		parameters_ = params; 
+	}
 
-    // 备份和回滚参数，用于丢弃一些迭代过程中不好的估计
-    void BackUpParameters() { parameters_backup_ = parameters_; }
-    void RollBackParameters() { parameters_ = parameters_backup_; }
+	/*!
+	*  @brief 备份当前顶点的参数值：用于迭代中去除不好的估计
+	*/
+    void BackUpParameters() { 
+		parameters_backup_ = parameters_; 
+	}
 
-    /// 加法，可重定义
-    /// 默认是向量加
+	/*!
+	*  @brief 将上一步迭代中的顶点参数值回滚到当前迭代顶点参数
+	*/
+    void RollBackParameters() {
+		parameters_ = parameters_backup_; 
+	}
+
+	/*!
+	*  @brief 顶点参数值加法：默认为向量加法，通过继承重定义
+	*  @param[in]	delta	顶点参数值变化量
+	*/
     virtual void Plus(const VecX &delta);
 
-    /// 返回顶点的名称，在子类中实现
+	/*!
+	*  @brief 返回顶点的名称：在子类中实现
+	*  @return	std::string	顶点类型名称
+	*/
     virtual std::string TypeInfo() const = 0;
 
-    int OrderingId() const { return ordering_id_; }
+	/*!
+	*  @brief 返回排序后顶点ID
+	*  @return	int	排序后顶点ID
+	*/
+    int OrderingId() const { 
+		return ordering_id_; 
+	}
 
-    void SetOrderingId(unsigned long id) { ordering_id_ = id; };
+	/*!
+	*  @brief 设置当前顶点排序后ID
+	*  @param[in]	id	排序后顶点ID
+	*/
+    void SetOrderingId(unsigned long id) { 
+		ordering_id_ = id; 
+	}
 
-    /// 固定该点的估计值
+	/*!
+	*  @brief 固定当前顶点的参数值
+	*  @param[in]	fixed	是否固定当前顶点参数值
+	*/
     void SetFixed(bool fixed = true) {
         fixed_ = fixed;
     }
 
-    /// 测试该点是否被固定
-    bool IsFixed() const { return fixed_; }
+	/*!
+	*  @brief 获取当前顶点的参数是否被固定
+	*  @return	bool	当前顶点参数值是否被固定
+	*/
+    bool IsFixed() const { 
+		return fixed_; 
+	}
 
 protected:
-    VecX parameters_;   // 实际存储的变量值
-    VecX parameters_backup_; // 每次迭代优化中对参数进行备份，用于回滚
-    int local_dimension_;   // 局部参数化维度
-    unsigned long id_;  // 顶点的id，自动生成
+	/*!< @brief 当前顶点参数值 */
+    VecX			parameters_;
+	/*!< @brief 当前顶点参数值的备份 */
+    VecX			parameters_backup_;
+	/*!< @brief 当前顶点优化时的参数化维度 */
+    int				local_dimension_;
+	/*!< @brief 当前顶点ID：自动生成 */
+    unsigned long	id_;
 
-    /// ordering id是在problem中排序后的id，用于寻找雅可比对应块
-    /// ordering id带有维度信息，例如ordering_id=6则对应Hessian中的第6列
-    /// 从零开始
+	/*!< @brief 当前顶点排序后ID：
+	在Problem中排序，用于寻找对应的雅可比块 */
     unsigned long ordering_id_ = 0;
-
-    bool fixed_ = false;    // 是否固定
+	/*!< @brief 当前顶点是否固定的标志 */
+    bool fixed_ = false;
 };
 
 }
 }
-
-#endif

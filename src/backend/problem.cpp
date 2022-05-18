@@ -274,7 +274,6 @@ bool Problem::Solve(int iterations) {
 //                stop = true;
 //                break;
 //            }
-
             // 更新状态量
             UpdateStates();
             // 判断当前步是否可行以及 LM 的 lambda 怎么更新, chi2 也计算一下
@@ -304,15 +303,15 @@ bool Problem::Solve(int iterations) {
         // TODO:: 应该改成前后两次的误差已经不再变化
 //        if (sqrt(currentChi_) <= stopThresholdLM_)
 //        if (sqrt(currentChi_) < 1e-15)
-        if(last_chi_ - currentChi_ < 1e-5)
+        if(last_chi_ - currentChi_ < 1e-6)
         {
-            std::cout << "sqrt(currentChi_) <= stopThresholdLM_" << std::endl;
+            //std::cout << "sqrt(currentChi_) <= stopThresholdLM_" << std::endl;
             stop = true;
         }
         last_chi_ = currentChi_;
     }
-    std::cout << "problem solve cost: " << t_solve.toc() << " ms" << std::endl;
-    std::cout << "   makeHessian cost: " << t_hessian_cost_ << " ms" << std::endl;
+    std::cout << "\tSolve Problem Cost: " << t_solve.toc() << " ms" << std::endl;
+    std::cout << "\tMake Hessian Cost: " << t_hessian_cost_ << " ms" << std::endl;
     t_hessian_cost_ = 0.;
     return true;
 }
@@ -384,11 +383,10 @@ void Problem::MakeHessian() {
     ulong size = ordering_generic_;
     MatXX H(MatXX::Zero(size, size));
     VecX b(VecX::Zero(size));
-    /* TODO：如何稳定加速 */
-    //#ifdef USE_OPENMP
-    //#pragma omp parallel for
-    //#endif
-    /* 遍历edge_：计算Hessian矩阵 */
+	/* 遍历edge_：计算Hessian矩阵 */
+	#ifdef USE_OPENMP
+//#pragma omp parallel for
+	#endif
     for (auto &edge: edges_) {
 
         edge.second->ComputeResidual();
@@ -406,8 +404,8 @@ void Problem::MakeHessian() {
             ulong index_i = v_i->OrderingId();
             ulong dim_i = v_i->LocalDimension();
 
-            // 鲁棒核函数会修改残差和信息矩阵，如果没有设置 robust cost function，就会返回原来的
-            double drho;
+            /* 为当前边添加鲁棒核函数 */
+			double drho = 1.0;
             MatXX robustInfo(edge.second->Information().rows(),edge.second->Information().cols());
             edge.second->RobustInfo(drho,robustInfo);
 
@@ -424,12 +422,9 @@ void Problem::MakeHessian() {
                 assert(v_j->OrderingId() != -1);
                 MatXX hessian = JtW * jacobian_j;
 
-                // 所有的信息矩阵叠加起来
                 H.block(index_i, index_j, dim_i, dim_j).noalias() += hessian;
                 if (j != i) {
-                    // 对称的下三角
                     H.block(index_j, index_i, dim_j, dim_i).noalias() += hessian.transpose();
-
                 }
             }
             b.segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edge.second->Information() * edge.second->Residual();
@@ -560,30 +555,32 @@ void Problem::RollbackStates() {
 
 /// LM
 void Problem::ComputeLambdaInitLM() {
+	/* 设置初始的迭代控制参数 */
     ni_ = 2.;
     currentLambda_ = -1.;
     currentChi_ = 0.0;
 
+	/* 计算初始的损失函数值 */
     for (auto edge: edges_) {
         currentChi_ += edge.second->RobustChi2();
     }
-    if (err_prior_.rows() > 0)
-        currentChi_ += err_prior_.norm();
+	if (err_prior_.rows() > 0) {
+		currentChi_ += err_prior_.norm();
+	}
     currentChi_ *= 0.5;
-
-    stopThresholdLM_ = 1e-10 * currentChi_;          // 迭代条件为 误差下降 1e-6 倍
-
+	
+    //stopThresholdLM_ = 1e-10 * currentChi_;
+	/* 计算Hessian矩阵对角元素最大值 */
     double maxDiagonal = 0;
     ulong size = Hessian_.cols();
-    assert(Hessian_.rows() == Hessian_.cols() && "Hessian is not square");
+    assert(Hessian_.rows() == Hessian_.cols() && "Hessian Is Not Square");
     for (ulong i = 0; i < size; ++i) {
-        maxDiagonal = std::max(fabs(Hessian_(i, i)), maxDiagonal);
+        maxDiagonal = (std::max)((std::fabs)(Hessian_(i, i)), maxDiagonal);
     }
-
-    maxDiagonal = std::min(5e10, maxDiagonal);
-    double tau = 1e-5;  // 1e-5
+	/* 计算初始的阻尼因子 */
+	double tau = 1e-5;
+    maxDiagonal = std::min(1e+10, maxDiagonal);
     currentLambda_ = tau * maxDiagonal;
-//        std::cout << "currentLamba_: "<<maxDiagonal<<" "<<currentLambda_<<std::endl;
 }
 
 /*!
