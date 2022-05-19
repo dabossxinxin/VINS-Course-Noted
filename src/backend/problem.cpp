@@ -856,7 +856,59 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
     }
 
     return true;
+}
 
+void Problem::TestMarginalize() {
+	int idx = 1;
+	int dim = 1;
+	int reserve_size = 3;
+	double delta1 = 0.1*0.1;
+	double delta2 = 0.2*0.2;
+	double delta3 = 0.3*0.3;
+
+	int cols = 3;
+	MatXX H_marg(MatXX::Zero(cols, cols));
+	H_marg << 1. / delta1, -1. / delta1, 0,
+		-1. / delta1, 1. / delta1 + 1. / delta2 + 1. / delta3, -1. / delta3,
+		0., -1. / delta3, 1. / delta3;
+	std::cout << "TEST Marg: Before Marg" << std::endl;
+	std::cout << H_marg << std::endl;
+
+	Eigen::MatrixXd temp_rows = H_marg.block(idx, 0, dim, reserve_size);
+	Eigen::MatrixXd temp_botRows = H_marg.block(idx + dim, 0, reserve_size - idx - dim, reserve_size);
+
+	H_marg.block(idx, 0, dim, reserve_size) = temp_botRows;
+	H_marg.block(reserve_size - dim, 0, reserve_size - idx - dim, reserve_size) = temp_rows;
+	// 将 col i 移动矩阵最右边
+	Eigen::MatrixXd temp_cols = H_marg.block(0, idx, reserve_size, dim); // 从0行，marg 中间那个变量 列开始索引；总变量维度，marg变量维度
+	Eigen::MatrixXd temp_rightCols = H_marg.block(0, idx + dim, reserve_size, reserve_size - idx - dim); // 
+
+	H_marg.block(0, idx, reserve_size, reserve_size - idx - dim) = temp_rightCols; // 0行，marg 中间那个变量 列；总变量维度，总-marg
+	H_marg.block(0, reserve_size - dim, reserve_size, dim) = temp_cols; // 从0行，总共变量的维度-marg变量的维度 列；总变量维度，marg变量的维度
+
+	std::cout << "---------- TEST Marg: 将变量移动到右下角------------" << std::endl;
+	std::cout << H_marg << std::endl;
+
+	/// 开始 marg ： schur
+	double eps = 1e-8;
+	int m2 = dim;
+	int n2 = reserve_size - dim;   // 剩余变量的维度
+	Eigen::MatrixXd Amm = 0.5 * (H_marg.block(n2, n2, m2, m2) + H_marg.block(n2, n2, m2, m2).transpose());
+
+	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes(Amm);
+	Eigen::MatrixXd Amm_inv = saes.eigenvectors() * Eigen::VectorXd(
+		(saes.eigenvalues().array() > eps).select(saes.eigenvalues().array().inverse(), 0)).asDiagonal() *
+		saes.eigenvectors().transpose();
+
+	Eigen::MatrixXd Arm = H_marg.block(0, n2, n2, m2);
+	Eigen::MatrixXd Amr = H_marg.block(n2, 0, m2, n2);
+	Eigen::MatrixXd Arr = H_marg.block(0, 0, n2, n2);
+
+	Eigen::MatrixXd tempB = Arm * Amm_inv;
+	Eigen::MatrixXd H_prior = Arr - tempB * Amr;
+
+	std::cout << "---------- TEST Marg: after marg------------" << std::endl;
+	std::cout << H_prior << std::endl;
 }
 
 }

@@ -111,6 +111,8 @@ public:
 	*/
     bool Marginalize(const std::vector<std::shared_ptr<Vertex> > frameVertex,int pose_dim);
 
+	void TestMarginalize();
+
     MatXX GetHessianPrior(){ 
         return H_prior_;
     }

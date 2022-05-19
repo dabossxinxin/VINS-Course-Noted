@@ -32,9 +32,9 @@ void GetSimDataInWorldFrame(std::vector<Frame>& cameraPoses, std::vector<Eigen::
 	}
 
 	std::default_random_engine generator;
-	std::normal_distribution<double> noise_pdf(0., 1. / 1000.);
+	std::normal_distribution<double> noise_pdf(0., 1./100);
 	for (int it = 0; it < featureNums; ++it) {
-		std::uniform_real_distribution<double> xy_rand(-4, 4.0);
+		std::uniform_real_distribution<double> xy_rand(-4, 4);
 		std::uniform_real_distribution<double> z_rand(4., 8.);
 
 		Eigen::Vector3d Pw(xy_rand(generator), xy_rand(generator), z_rand(generator));
@@ -68,7 +68,7 @@ int main() {
 		pose << cameras[it].twc, cameras[it].qwc.x(), cameras[it].qwc.y(), cameras[it].qwc.z(), cameras[it].qwc.w();
 		vertexCam->SetParameters(pose);
 
-		if (it < 3) {
+		if (it < 2) {
 			vertexCam->SetFixed();
 		}
 		/* 向问题中添加相机顶点 */
@@ -80,6 +80,10 @@ int main() {
 	std::normal_distribution<double> noise_pdf(0., 1.);
 	double noise = 0.;
 	std::vector<double> noise_invd;
+
+	MatXX information(2, 2);
+	information.setIdentity();
+	information *= 1.5;
 
 	/* 向优化问题中添加边 */
 	std::vector<std::shared_ptr<VertexInverseDepth>> allPoints;
@@ -105,12 +109,16 @@ int main() {
 
 			std::shared_ptr<EdgeReprojectionICFixed> 
 				edge(new EdgeReprojectionICFixed(pt_i, pt_j));
+
+			LossFunction* huber = new HuberLoss(1.5);
 			
 			std::vector<std::shared_ptr<Vertex>> edge_vertex;
 			edge_vertex.push_back(vertexPoint);
 			edge_vertex.push_back(vertexCams_vec[0]);
 			edge_vertex.push_back(vertexCams_vec[itj]);
 			edge->SetVertex(edge_vertex);
+			//edge->SetLossFunction(huber);
+			edge->SetInformation(information);
 			
 			/* 向问题中添加边 */
 			problem.AddEdge(edge);
@@ -128,8 +136,16 @@ int main() {
 	for (int i = 0; i < vertexCams_vec.size(); ++i) {
 		std::cout << "Translation After Opt: " << i << " :" << vertexCams_vec[i]->Parameters().head(3).transpose() << " || GroundTruth: " << cameras[i].twc.transpose() << std::endl;
 	}
-
-	//problem.TestMarginalize();
+	std::cout << "--------------Eular Angle ----------------" << std::endl;
+	for (int it = 0; it < vertexCams_vec.size(); ++it) {
+		Eigen::VectorXd pose = vertexCams_vec[it]->Parameters();
+		Qd Qi(pose[6], pose[3], pose[4], pose[5]);
+		Eigen::Vector3d eularAngleOpt = Qi.toRotationMatrix().eulerAngles(2, 1, 0);
+		Eigen::Vector3d eularAngle = cameras[it].Rwc.eulerAngles(2, 1, 0);
+		std::cout << "Eular Angle After Opt: " << "it" << " :" << eularAngleOpt.transpose() << " || GroundTruth: " << eularAngle.transpose() << std::endl;
+	}
+	
+	problem.TestMarginalize();
 	system("pause");
 	return 0;
 }
