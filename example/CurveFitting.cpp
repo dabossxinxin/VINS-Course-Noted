@@ -78,7 +78,7 @@ public:
 
 int main() {
 	/* 真实参数值&数据点数量&高斯噪声方差 */
-	int N = 10000;
+	int N = 100;
 	double w_sigma = 1.;
     double a=1.0, b=2.0, c=1.0;
 
@@ -96,11 +96,11 @@ int main() {
 
     /* 构造N次观测 */
     for (int i = 0; i < N; ++i) {
-        double x = i/10000.;
+        double x = i/100.;
         double n = noise(generator);
         double y = std::exp( a*x*x + b*x + c ) + n;
         /* 构建边并将其加入到优化问题中 */
-		LossFunction* loss = new HuberLoss(0.5);
+		LossFunction* loss = new HuberLoss(2.0);
         std::shared_ptr<CurveFittingEdge> edge(new CurveFittingEdge(x,y));
         std::vector<std::shared_ptr<Vertex>> edge_vertex;
         edge_vertex.push_back(vertex);
@@ -110,7 +110,7 @@ int main() {
     }
 
 	/* 开始迭代求解优化问题 */
-    problem.Solve(30);
+    problem.Solve(300);
 	/* 获取优化后结果 */
 	std::cout << "After Optimization,Parameters :" << std::endl;
     std::cout << vertex->Parameters().transpose() << std::endl;

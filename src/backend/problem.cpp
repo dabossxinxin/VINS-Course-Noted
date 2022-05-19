@@ -251,7 +251,7 @@ bool Problem::Solve(int iterations) {
     /* LM开始进行 */
     bool stop = false;
     int iter = 0;
-    double last_chi_ = 1e20;
+    double last_chi_ = 1e+20;
     while (!stop && (iter < iterations)) {
         /* 打印优化的关键信息 */
         std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Lambda= " << currentLambda_ << std::endl;
@@ -388,17 +388,16 @@ void Problem::MakeHessian() {
 //#pragma omp parallel for
 	#endif
     for (auto &edge: edges_) {
-
         edge.second->ComputeResidual();
         edge.second->ComputeJacobians();
 
-        // TODO:: robust cost
         auto jacobians = edge.second->Jacobians();
         auto verticies = edge.second->Verticies();
         assert(jacobians.size() == verticies.size());
         for (size_t i = 0; i < verticies.size(); ++i) {
             auto v_i = verticies[i];
-            if (v_i->IsFixed()) continue;    // Hessian 里不需要添加它的信息，也就是它的雅克比为 0
+			/* 若顶点固定，则对应雅可比为0 */
+            if (v_i->IsFixed()) continue;
 
             auto jacobian_i = jacobians[i];
             ulong index_i = v_i->OrderingId();
@@ -435,11 +434,11 @@ void Problem::MakeHessian() {
     t_hessian_cost_ += t_h.toc();
 
     if(H_prior_.rows() > 0)
-    {
+	{
         MatXX H_prior_tmp = H_prior_;
         VecX b_prior_tmp = b_prior_;
 
-        /// 遍历所有 POSE 顶点，然后设置相应的先验维度为 0 .  fix 外参数, SET PRIOR TO ZERO
+        /// 遍历所有 POSE 顶点，然后设置相应的先验维度为0.  fix 外参数, SET PRIOR TO ZERO
         /// landmark 没有先验
         for (auto vertex: verticies_) {
             if (IsPoseVertex(vertex.second) && vertex.second->IsFixed() ) {
@@ -448,7 +447,7 @@ void Problem::MakeHessian() {
                 H_prior_tmp.block(idx,0, dim, H_prior_tmp.cols()).setZero();
                 H_prior_tmp.block(0,idx, H_prior_tmp.rows(), dim).setZero();
                 b_prior_tmp.segment(idx,dim).setZero();
-//                std::cout << " fixed prior, set the Hprior and bprior part to zero, idx: "<<idx <<" dim: "<<dim<<std::endl;
+                //std::cout << " fixed prior, set the Hprior and bprior part to zero, idx: "<<idx <<" dim: "<<dim<<std::endl;
             }
         }
         Hessian_.topLeftCorner(ordering_poses_, ordering_poses_) += H_prior_tmp;

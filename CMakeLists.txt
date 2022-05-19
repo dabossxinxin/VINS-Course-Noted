@@ -145,3 +145,6 @@ target_link_libraries(RunEuroc VIOdometry -lpthread)
 add_executable(CurveFitting example/CurveFitting.cpp)
 set_target_properties(CurveFitting PROPERTIES COMPILE_FLAGS "/EHsc")
 target_link_libraries(CurveFitting VIOdometry)
+
+add_executable(MonoOptimization example/MonoOptimization.cpp)
+target_link_libraries(MonoOptimization VIOdometry)
