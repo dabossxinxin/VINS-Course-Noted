@@ -8,6 +8,7 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+add_definitions(-D__windows__)
 add_definitions(-DUSE_OPENMP)
 add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
 
@@ -148,3 +149,6 @@ target_link_libraries(CurveFitting VIOdometry)
 
 add_executable(MonoOptimization example/MonoOptimization.cpp)
 target_link_libraries(MonoOptimization VIOdometry)
+
+add_executable(RunSimulate example/run_simulate.cpp)
+target_link_libraries(RunSimulate VIOdometry)

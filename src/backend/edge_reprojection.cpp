@@ -65,6 +65,8 @@ void EdgeReprojectionICFixed::ComputeJacobians() {
 	Mat33 Ri = Qi.toRotationMatrix();
 	Mat33 Rj = Qj.toRotationMatrix();
 	Mat33 ric = qic.toRotationMatrix();
+	
+	/* reduce表示归一化相机坐标对相机坐标的雅可比 */
 	Mat23 reduce(2, 3);
 	reduce << 1. / dep_j, 0, -pts_camera_j(0) / (dep_j*dep_j),
 		0, 1. / dep_j, -pts_camera_j(1) / (dep_j*dep_j);
@@ -168,6 +170,8 @@ void EdgeReprojection::ComputeJacobians() {
     Mat33 Ri = Qi.toRotationMatrix();
     Mat33 Rj = Qj.toRotationMatrix();
     Mat33 ric = qic.toRotationMatrix();
+
+	/* reduce表示归一化相机坐标对相机坐标的雅可比 */
     Mat23 reduce(2, 3);
     reduce << 1. / dep_j, 0, -pts_camera_j(0) / (dep_j * dep_j),
         0, 1. / dep_j, -pts_camera_j(1) / (dep_j * dep_j);
@@ -254,6 +258,8 @@ void EdgeReprojectionXYZ::ComputeJacobians() {
 
     Mat33 Ri = Qi.toRotationMatrix();
     Mat33 ric = qic.toRotationMatrix();
+
+	/* reduce表示归一化相机坐标对相机坐标的雅可比 */
     Mat23 reduce(2, 3);
     reduce << 1. / dep_i, 0, -pts_camera_i(0) / (dep_i * dep_i),
         0, 1. / dep_i, -pts_camera_i(1) / (dep_i * dep_i);

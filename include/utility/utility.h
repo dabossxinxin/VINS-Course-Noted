@@ -1,9 +1,12 @@
 ﻿#pragma once
 
+#include <iostream>
+#include <map>
 #include <cmath>
 #include <cassert>
 #include <cstring>
 #include <Eigen/Dense>
+#include <fstream>
 
 #define M_PI       3.14159265358979323846   // pi
 
@@ -139,4 +142,21 @@ class Utility
         return angle_degrees +
             two_pi * std::floor((-angle_degrees + T(180)) / two_pi);
     };
+
+	static bool SavePointCloudTXT(const std::string& path, const std::map<int, Eigen::Vector3d>& points) 
+	{
+		std::ofstream save_points;
+		save_points.open(path.c_str());
+
+		auto it = points.begin();
+		for (; it != points.end(); ++it)  
+		{
+			Eigen::Vector3d p = it->second;
+			save_points << p(0) << " "
+				<< p(1) << " "
+				<< p(2) << " "
+				<< std::endl;
+		}
+		return true;
+	}
 };

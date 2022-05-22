@@ -11,8 +11,8 @@ void solveGyroscopeBias(map<double, ImageFrame> &all_image_frame, Vector3d* Bgs)
     Eigen::Vector3d delta_bg;
     A.setZero();
     b.setZero();
-    map<double, ImageFrame>::iterator frame_i;
-    map<double, ImageFrame>::iterator frame_j;
+    std::map<double, ImageFrame>::iterator frame_i;
+    std::map<double, ImageFrame>::iterator frame_j;
     for (frame_i = all_image_frame.begin(); next(frame_i) != all_image_frame.end(); frame_i++) {
         frame_j = next(frame_i);
         Eigen::MatrixXd tmp_A(3, 3);
@@ -78,8 +78,8 @@ void RefineGravity(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vector
     Eigen::VectorXd b{n_state};
     b.setZero();
 
-    map<double, ImageFrame>::iterator frame_i;
-    map<double, ImageFrame>::iterator frame_j;
+    std::map<double, ImageFrame>::iterator frame_i;
+    std::map<double, ImageFrame>::iterator frame_j;
     /* 反复在重力正切中进行优化，直到重力收敛 */
     for(int k = 0; k < 4; k++)
     {

@@ -1,6 +1,10 @@
-﻿#include "initial/initial_sfm.h"
+﻿#include "utility/utility.h"
+#include "initial/initial_sfm.h"
 
-GlobalSFM::GlobalSFM(){}
+GlobalSFM::GlobalSFM()
+{
+	this->feature_num = 0;
+}
 
 void GlobalSFM::triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0, Eigen::Matrix<double, 3, 4> &Pose1,
 						Vector2d &point0, Vector2d &point1, Vector3d &point_3d)
@@ -114,8 +118,8 @@ void GlobalSFM::triangulateTwoFrames(int frame0, Eigen::Matrix<double, 3, 4> &Po
 //  c_translation cam_R_w
 // relative_q[i][j]  j_q_i
 // relative_t[i][j]  j_t_ji  (j < i)
-bool GlobalSFM::construct(int frame_num, std::vector<Eigen::Quaterniond> q, std::vector<Vector3d> T,
-						int l, const Eigen::Matrix3d relative_R, const Eigen::Vector3d relative_T,
+bool GlobalSFM::construct(int& frame_num, std::vector<Eigen::Quaterniond>& q, std::vector<Vector3d>& T,
+						int& l, const Eigen::Matrix3d& relative_R, const Eigen::Vector3d& relative_T,
 						std::vector<SFMFeature> &sfm_f, std::map<int, Eigen::Vector3d> &sfm_tracked_points)
 {
 	feature_num = sfm_f.size();
@@ -137,8 +141,8 @@ bool GlobalSFM::construct(int frame_num, std::vector<Eigen::Quaterniond> q, std:
 	std::vector<Eigen::Quaterniond> c_Quat(frame_num);
 	/*std::vector<std::vector<double>> c_rotation(frame_num, std::vector<double>(4));
 	std::vector<std::vector<double>> c_translation(frame_num, std::vector<double>(3));*/
-	std::vector<double*> c_rotation(frame_num, new double[4]);
-	std::vector<double*> c_translation(frame_num, new double[3]);
+	std::vector<Eigen::Vector4d> c_rotation(frame_num);
+	std::vector<Eigen::Vector3d> c_translation(frame_num);
 	std::vector<Eigen::Matrix<double, 3, 4>> Pose(frame_num);
 
 	c_Quat[l] = q[l].inverse();
@@ -245,15 +249,15 @@ bool GlobalSFM::construct(int frame_num, std::vector<Eigen::Quaterniond> q, std:
 		c_rotation[i][1] = c_Quat[i].x();
 		c_rotation[i][2] = c_Quat[i].y();
 		c_rotation[i][3] = c_Quat[i].z();
-		problem.AddParameterBlock(c_rotation[i], 4, local_parameterization);
-		problem.AddParameterBlock(c_translation[i], 3);
+		problem.AddParameterBlock(c_rotation[i].data(), 4, local_parameterization);
+		problem.AddParameterBlock(c_translation[i].data(), 3);
 		if (i == l)
 		{
-			problem.SetParameterBlockConstant(c_rotation[i]);
+			problem.SetParameterBlockConstant(c_rotation[i].data());
 		}
 		if (i == l || i == frame_num - 1)
 		{
-			problem.SetParameterBlockConstant(c_translation[i]);
+			problem.SetParameterBlockConstant(c_translation[i].data());
 		}
 	}
 
@@ -268,7 +272,7 @@ bool GlobalSFM::construct(int frame_num, std::vector<Eigen::Quaterniond> q, std:
 												sfm_f[i].observation[j].second.x(),
 												sfm_f[i].observation[j].second.y());
 
-    		problem.AddResidualBlock(cost_function, NULL, c_rotation[l], c_translation[l], 
+    		problem.AddResidualBlock(cost_function, NULL, c_rotation[l].data(), c_translation[l].data(), 
     								sfm_f[i].position);	 
 		}
 
@@ -295,26 +299,19 @@ bool GlobalSFM::construct(int frame_num, std::vector<Eigen::Quaterniond> q, std:
 		q[i] = q[i].inverse();
 		//cout << "final  q" << " i " << i <<"  " <<q[i].w() << "  " << q[i].vec().transpose() << endl;
 	}
-	for (int i = 0; i < frame_num; i++)
-	{
-
+	for (int i = 0; i < frame_num; i++) {
 		T[i] = -1 * (q[i] * Eigen::Vector3d(c_translation[i][0], c_translation[i][1], c_translation[i][2]));
 		//cout << "final  t" << " i " << i <<"  " << T[i](0) <<"  "<< T[i](1) <<"  "<< T[i](2) << endl;
 	}
-	for (int i = 0; i < (int)sfm_f.size(); i++)
-	{
-		if(sfm_f[i].state)
+	
+	for (int i = 0; i < (int)sfm_f.size(); i++) {
+		if (sfm_f[i].state) {
 			sfm_tracked_points[sfm_f[i].id] = Vector3d(sfm_f[i].position[0], sfm_f[i].position[1], sfm_f[i].position[2]);
+		}
 	}
-	/* 析构临时变量 */
-	for (int it = 0; it < c_rotation.size(); ++it) {
-		delete [] c_rotation[it];
-		c_rotation[it] = nullptr;
-	}
-	for (int it = 0; it < c_translation.size(); ++it) {
-		delete[] c_translation[it];
-		c_translation[it] = nullptr;
-	}
+	/* 保存初始SFM的点云 */
+	std::string DebugPath = "C:\\Users\\Administrator\\Desktop\\SFMCLOUD.txt";
+	Utility::SavePointCloudTXT(DebugPath, sfm_tracked_points);
 	/* 正常返回 */
 	return true;
 

@@ -292,15 +292,16 @@ bool Estimator::initialStructure()
     int l;
     if (!relativePose(relative_R, relative_T, l))
     {
-        cout << "Not enough features or parallax; Move device around" << endl;
+        std::cout << "Not enough features or parallax; Move device around" << std::endl;
         return false;
     }
     GlobalSFM sfm;
-    if (!sfm.construct(frame_count + 1, Q, T, l,
+	int count_new = frame_count + 1;
+    if (!sfm.construct(count_new, Q, T, l,
                        relative_R, relative_T,
                        sfm_f, sfm_tracked_points))
     {
-        cout << "global SFM failed!" << endl;
+        std::cout << "Global SFM Failed!" << std::endl;
         marginalization_flag = MARGIN_OLD;
         return false;
     }
@@ -354,12 +355,12 @@ bool Estimator::initialStructure()
         cv::Mat K = (cv::Mat_<double>(3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, 1);
         if (pts_3_vector.size() < 6)
         {
-            cout << "Not enough points for solve pnp pts_3_vector size " << pts_3_vector.size() << endl;
+            std::cout << "Not enough points for solve pnp pts_3_vector size " << pts_3_vector.size() << std::endl;
             return false;
         }
         if (!cv::solvePnP(pts_3_vector, pts_2_vector, K, D, rvec, t, 1))
         {
-            cout << " solve pnp fail!" << endl;
+            std::cout << " Solve PnP Fail!" << std::endl;
             return false;
         }
         cv::Rodrigues(rvec, r);
@@ -376,7 +377,7 @@ bool Estimator::initialStructure()
         return true;
     else
     {
-        cout << "misalign visual structure with IMU" << endl;
+        cout << "MisAlign Visual Structure With IMU" << endl;
         return false;
     }
 }
@@ -389,7 +390,7 @@ bool Estimator::visualInitialAlign()
     bool result = VisualIMUAlignment(all_image_frame, Bgs, g, x);
     if (!result)
     {
-        //ROS_DEBUG("solve g failed!");
+		std::cerr << "Visual Inertial Align Solve G Failed..." << std::endl;
         return false;
     }
 
