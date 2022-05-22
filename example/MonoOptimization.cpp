@@ -19,8 +19,8 @@ struct Frame {
 };
 
 void GetSimDataInWorldFrame(std::vector<Frame>& cameraPoses, std::vector<Eigen::Vector3d>& points) {
-	int featureNums = 200;
-	int poseNums = 30;
+	int featureNums = 2000;
+	int poseNums = 10;
 	
 	double radius = 8;
 	for (int it = 0; it < poseNums; ++it) {

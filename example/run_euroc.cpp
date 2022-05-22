@@ -15,82 +15,84 @@ using namespace cv;
 using namespace Eigen;
 
 const int nDelayTimes = 2;
-string sData_path = "/home/dataset/EuRoC/MH-05/mav0/";
-string sConfig_path = "../config/";
+std::string sData_path = "D:\\Data\\MH_05_difficult\\mav0\\";
+std::string sConfig_path = "D:\\Code\\VINS-Course-Noted\\config\\";
 
 std::shared_ptr<System> pSystem;
 
+/*!
+*  @brief 系统读取IMU数据
+*/
 void PubImuData()
 {
-	string sImu_data_file = sConfig_path + "MH_05_imu0.txt";
-	cout << "1 PubImuData start sImu_data_filea: " << sImu_data_file << endl;
-	ifstream fsImu;
+	/* 设置IMU数据句柄 */
+	std::string sImu_data_file = sConfig_path + "MH_05_imu0.txt";
+	std::cout << "1 PubImuData Start sImu_data_file: " << sImu_data_file << std::endl;
+	std::ifstream fsImu;
 	fsImu.open(sImu_data_file.c_str());
-	if (!fsImu.is_open())
-	{
-		cerr << "Failed to open imu file! " << sImu_data_file << endl;
+	if (!fsImu.is_open()) {
+		std::cerr << "Failed To Open Imu File! " << sImu_data_file << std::endl;
 		return;
 	}
 
+	/* 读取IMU数据 */
 	std::string sImu_line;
 	double dStampNSec = 0.0;
-	Vector3d vAcc;
-	Vector3d vGyr;
-	while (std::getline(fsImu, sImu_line) && !sImu_line.empty()) // read imu data
-	{
+	Eigen::Vector3d vAcc;
+	Eigen::Vector3d vGyr;
+	while (std::getline(fsImu, sImu_line) && !sImu_line.empty()) {
+		/* 读取IMU数据 */
 		std::istringstream ssImuData(sImu_line);
 		ssImuData >> dStampNSec >> vGyr.x() >> vGyr.y() >> vGyr.z() >> vAcc.x() >> vAcc.y() >> vAcc.z();
-		// cout << "Imu t: " << fixed << dStampNSec << " gyr: " << vGyr.transpose() << " acc: " << vAcc.transpose() << endl;
+		/* 将IMU数据加入到系统中 */
 		pSystem->PubImuData(dStampNSec / 1e9, vGyr, vAcc);
 		//usleep(5000*nDelayTimes);
-		cv::waitKey(5000 * nDelayTimes);
+		cv::waitKey(5000*nDelayTimes);
 	}
+	/* 关闭IMU句柄 */
 	fsImu.close();
 }
 
+/*!
+*  @brief 系统读取Image数据
+*/
 void PubImageData()
 {
-	string sImage_file = sConfig_path + "MH_05_cam0.txt";
-
-	cout << "1 PubImageData start sImage_file: " << sImage_file << endl;
-
-	ifstream fsImage;
+	/* 设置图像数据句柄 */
+	std::string sImage_file = sConfig_path + "MH_05_cam0.txt";
+	std::cout << "1 PubImageData Start sImage_file: " << sImage_file << std::endl;
+	std::ifstream fsImage;
 	fsImage.open(sImage_file.c_str());
-	if (!fsImage.is_open())
-	{
-		cerr << "Failed to open image file! " << sImage_file << endl;
+	if (!fsImage.is_open()) {
+		std::cerr << "Failed To Open Image File! " << sImage_file << std::endl;
 		return;
 	}
 
+	/* 读取图像数据 */
 	std::string sImage_line;
 	double dStampNSec;
-	string sImgFileName;
-	
-	// cv::namedWindow("SOURCE IMAGE", CV_WINDOW_AUTOSIZE);
-	while (std::getline(fsImage, sImage_line) && !sImage_line.empty())
-	{
+	std::string sImgFileName;
+	while (std::getline(fsImage, sImage_line) && !sImage_line.empty()) {
+		/* 获取图像读取路径 */
 		std::istringstream ssImuData(sImage_line);
 		ssImuData >> dStampNSec >> sImgFileName;
-		// cout << "Image t : " << fixed << dStampNSec << " Name: " << sImgFileName << endl;
-		string imagePath = sData_path + "cam0/data/" + sImgFileName;
-
+		string imagePath = sData_path + "cam0\\data\\" + sImgFileName;
+		/* 读取图像数据 */
 		Mat img = imread(imagePath.c_str(), 0);
-		if (img.empty())
-		{
-			cerr << "image is empty! path: " << imagePath << endl;
+		if (img.empty()) {
+			std::cerr << "Image Is Empty! Path: " << imagePath << std::endl;
 			return;
 		}
+		/* 将图像数据加入到VIO系统中 */
 		pSystem->PubImageData(dStampNSec / 1e9, img);
-		// cv::imshow("SOURCE IMAGE", img);
-		// cv::waitKey(0);
 		//usleep(50000*nDelayTimes);
-		cv::waitKey(5000 * nDelayTimes);
+		cv::waitKey(50000*nDelayTimes);
 	}
+	/* 关闭图像句柄 */
 	fsImage.close();
 }
 
 #ifdef __APPLE__
-// support for MacOS
 void DrawIMGandGLinMainThrd(){
 	string sImage_file = sConfig_path + "MH_05_cam0.txt";
 
@@ -148,10 +150,9 @@ void DrawIMGandGLinMainThrd(){
 
 int main(int argc, char **argv)
 {
-	if(argc != 3)
-	{
-		cerr << "./run_euroc PATH_TO_FOLDER/MH-05/mav0 PATH_TO_CONFIG/config \n" 
-			<< "For example: ./run_euroc /home/stevencui/dataset/EuRoC/MH-05/mav0/ ../config/"<< endl;
+	if(argc != 3) {
+		std::cerr << "./run_euroc PATH_TO_FOLDER/MH-05/mav0 PATH_TO_CONFIG/config \n" 
+			<< "For example: ./run_euroc /home/stevencui/dataset/EuRoC/MH-05/mav0/ ../config/"<< std::endl;
 		return -1;
 	}
 	sData_path = argv[1];
@@ -160,13 +161,12 @@ int main(int argc, char **argv)
 	pSystem.reset(new System(sConfig_path));
 	
 	std::thread thd_BackEnd(&System::ProcessBackEnd, pSystem);
-		
-	// sleep(5);
 	std::thread thd_PubImuData(PubImuData);
-
 	std::thread thd_PubImageData(PubImageData);
 
-#ifdef __linux__	
+#ifdef __linux__
+	std::thread thd_Draw(&System::Draw, pSystem);
+#elif __windows__
 	std::thread thd_Draw(&System::Draw, pSystem);
 #elif __APPLE__
 	DrawIMGandGLinMainThrd();
@@ -174,11 +174,10 @@ int main(int argc, char **argv)
 
 	thd_PubImuData.join();
 	thd_PubImageData.join();
+	thd_BackEnd.join();
+	thd_Draw.join();
 
-	// thd_BackEnd.join();
-	// thd_Draw.join();
-
-	std::cout << "main end... see you ..." << std::endl;
+	std::cout << "Main End...See You ..." << std::endl;
 	system("pause");
 	return 0;
 }
