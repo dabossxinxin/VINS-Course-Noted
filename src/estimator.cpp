@@ -98,7 +98,8 @@ void Estimator::clearState()
     drift_correct_t = Vector3d::Zero();
 }
 
-/**@brief 对输入系统的每一个IMU值进行预积分
+/*
+* @brief 对输入系统的每一个IMU值进行预积分
 * @param[in]  dt                    两IMU测量值之间的时间差
 * @param[in]  linear_acceleration   IMU量测的加速度
 * @param[in]  angular_velocity      IMU量测的角速度
@@ -140,7 +141,9 @@ void Estimator::processIMU(double dt, const Vector3d &linear_acceleration, const
 
 void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, double header)
 {
-    std::cout << "Adding feature points: " << image.size()<<std::endl;
+	std::cout << "Adding feature points: " << image.size() << std::endl;
+	/* 添加之前检测到的特征点到feature容器中，计算每个特征的被跟踪次数以及视差 */
+	/* 并且根据检测两帧之间的视差决定是否将当前帧作为关键帧 */
     if (f_manager.addFeatureCheckParallax(frame_count, image, td)) {
         marginalization_flag = MARGIN_OLD;
     } else {
@@ -153,12 +156,14 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     // cout << "number of feature: " << f_manager.getFeatureCount()<<endl;
     Headers[frame_count] = header;
 
+	/* 将图像数据、时间戳、临时预积分值保存在图像帧中 */
     ImageFrame imageframe(image, header);
     imageframe.pre_integration = tmp_pre_integration;
-    all_image_frame.insert(make_pair(header, imageframe));
+    all_image_frame.insert(std::make_pair(header, imageframe));
+	/* 更新临时预积分值 */
     tmp_pre_integration = new IntegrationBase{acc_0, gyr_0, Bas[frame_count], Bgs[frame_count]};
 
-    /* 标定Camera与IMU之间的外参：此处标定旋转 */
+    /* 判断是否需要进行IMU-Camera外参标定 */
     if (ESTIMATE_EXTRINSIC == 2)
     {
         cout << "calibrating extrinsic param, rotation movement is needed" << endl;
@@ -168,9 +173,6 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
             Eigen::Matrix3d calib_ric;
             if (initial_ex_rotation.CalibrationExRotation(corres, pre_integrations[frame_count]->delta_q, calib_ric))
             {
-                // ROS_WARN("initial extrinsic rotation calib success");
-                // ROS_WARN_STREAM("initial extrinsic rotation: " << endl
-                                                            //    << calib_ric);
                 ric[0] = calib_ric;
                 RIC[0] = calib_ric;
                 ESTIMATE_EXTRINSIC = 1;
@@ -182,12 +184,13 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     {
         if (frame_count == WINDOW_SIZE)
         {
+			/* 执行Visual-IMU联合初始化 */
             bool result = false;
             if (ESTIMATE_EXTRINSIC != 2 && (header - initial_timestamp) > 0.1) {
-                // cout << "1 initialStructure" << endl;
                 result = initialStructure();
                 initial_timestamp = header;
             }
+			/* 联合初始化成功则进行一次非线性优化 */
             if (result) {
                 solver_flag = NON_LINEAR;
                 solveOdometry();
@@ -198,6 +201,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
                 last_P = Ps[WINDOW_SIZE];
                 last_R0 = Rs[0];
                 last_P0 = Ps[0];
+			/* 联合初始化不成功则进行一次滑窗操作 */
             } else {
                 slideWindow();
             }
@@ -208,16 +212,14 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     else
     {
         TicToc t_solve;
+		/* 执行非线性优化 */
         solveOdometry();
-        //ROS_DEBUG("solver costs: %fms", t_solve.toc());
-
+		/* 检测系统运行是否失败，若失败则重置估计器 */
         if (failureDetection())
         {
-            // ROS_WARN("failure detection!");
             failure_occur = 1;
             clearState();
             setParameter();
-            // ROS_WARN("system reboot!");
             return;
         }
 
@@ -240,9 +242,9 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 bool Estimator::initialStructure()
 {
     TicToc t_sfm;
-    //check imu observibility
+    /* 检测IMU的加速度激励是否足够 */
     {
-        map<double, ImageFrame>::iterator frame_it;
+        std::map<double, ImageFrame>::iterator frame_it;
         Vector3d sum_g;
         for (frame_it = all_image_frame.begin(), frame_it++; frame_it != all_image_frame.end(); frame_it++)
         {
@@ -268,11 +270,13 @@ bool Estimator::initialStructure()
             //return false;
         }
     }
-    // global sfm
+    
+	/* 开始进行纯视觉SFM */
     std::vector<Eigen::Quaterniond> Q(frame_count + 1);
     std::vector<Eigen::Vector3d> T(frame_count + 1);
-    std::map<int, Vector3d> sfm_tracked_points;
+    std::map<int, Eigen::Vector3d> sfm_tracked_points;
     std::vector<SFMFeature> sfm_f;
+	/* 获取SFM中输入的所有特征点信息 */
     for (auto &it_per_id : f_manager.feature)
     {
         int imu_j = it_per_id.start_frame - 1;
@@ -282,14 +286,15 @@ bool Estimator::initialStructure()
         for (auto &it_per_frame : it_per_id.feature_per_frame)
         {
             imu_j++;
-            Vector3d pts_j = it_per_frame.point;
-            tmp_feature.observation.push_back(make_pair(imu_j, Eigen::Vector2d{pts_j.x(), pts_j.y()}));
+            Eigen::Vector3d pts_j = it_per_frame.point;
+            tmp_feature.observation.push_back(std::make_pair(imu_j, Eigen::Vector2d{pts_j.x(), pts_j.y()}));
         }
         sfm_f.push_back(tmp_feature);
     }
-    Matrix3d relative_R;
-    Vector3d relative_T;
-    int l;
+	/* 获取SFM中的参考帧索引l */
+	int l = 0;
+    Eigen::Matrix3d relative_R;
+    Eigen::Vector3d relative_T;
     if (!relativePose(relative_R, relative_T, l))
     {
         std::cout << "Not enough features or parallax; Move device around" << std::endl;
@@ -460,29 +465,37 @@ bool Estimator::visualInitialAlign()
     return true;
 }
 
-bool Estimator::relativePose(Matrix3d &relative_R, Vector3d &relative_T, int &l)
+/*!
+*  @brief 在滑窗中搜索与最新进来的（当前）帧之间具有足够视差和特征匹配的帧
+*  @param[out]	relative_R	两帧之间的旋转变换
+*  @param[out]	relative_T	两帧之间的平移变换
+*  @param[out]	l			滑窗中与当前帧最优匹配帧ID
+*  @return		bool		滑窗中是否找到当前帧最有匹配帧
+*/
+bool Estimator::relativePose(Eigen::Matrix3d &relative_R, Eigen::Vector3d &relative_T, int &l)
 {
-    // find previous frame which contians enough correspondance and parallex with newest frame
     for (int i = 0; i < WINDOW_SIZE; i++)
     {
-        vector<pair<Vector3d, Vector3d>> corres;
+		/* 获取第i帧与当前帧的匹配特征点 */
+        std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> corres;
         corres = f_manager.getCorresponding(i, WINDOW_SIZE);
         if (corres.size() > 20)
         {
+			/* 计算所有匹配点的视差 */
             double sum_parallax = 0;
             double average_parallax;
             for (int j = 0; j < int(corres.size()); j++)
             {
-                Vector2d pts_0(corres[j].first(0), corres[j].first(1));
-                Vector2d pts_1(corres[j].second(0), corres[j].second(1));
+                Eigen::Vector2d pts_0(corres[j].first(0), corres[j].first(1));
+                Eigen::Vector2d pts_1(corres[j].second(0), corres[j].second(1));
                 double parallax = (pts_0 - pts_1).norm();
                 sum_parallax = sum_parallax + parallax;
             }
             average_parallax = 1.0 * sum_parallax / int(corres.size());
+			/* 在像素坐标系中平均视差大于30个像素 */
             if (average_parallax * 460 > 30 && m_estimator.solveRelativeRT(corres, relative_R, relative_T))
             {
                 l = i;
-                //ROS_DEBUG("average_parallax %f choose l %d and newest frame to triangulate the whole structure", average_parallax * 460, l);
                 return true;
             }
         }

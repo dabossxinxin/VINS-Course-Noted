@@ -190,7 +190,8 @@ namespace cv {
 }
 
 
-bool MotionEstimator::solveRelativeRT(const vector<pair<Vector3d, Vector3d>> &corres, Matrix3d &Rotation, Vector3d &Translation)
+bool MotionEstimator::solveRelativeRT(const std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> &corres, 
+									Eigen::Matrix3d &Rotation, Eigen::Vector3d &Translation)
 {
     if (corres.size() >= 15)
     {
@@ -225,6 +226,3 @@ bool MotionEstimator::solveRelativeRT(const vector<pair<Vector3d, Vector3d>> &co
     }
     return false;
 }
-
-
-

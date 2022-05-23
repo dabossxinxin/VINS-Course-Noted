@@ -239,30 +239,35 @@ void System::PubImageData(double dStampSec, const std::vector<cv::Point2f>& feat
 
 /*!
 *  @brief VIO系统中将IMU数据与相机数据对齐：获取时间对齐的相机与IMU测量数据
+*  @detail [1]:IMU或者相机帧的buf为空，measurements返回空值
+*		   [2]:IMU最新的时间戳imu_buf.back()小于最旧的图像帧feature_buf.front()，等待IMU刷新
+*		   [3]:IMU最旧的时间戳imu_buf.front()大于图像帧最旧的图像帧feature_buf.front(),等待IMU刷新
+*		   [4]:理想情况:IMU最旧的在图像帧最旧的之前，保证有足够的IMU数据
 *  @return	std::vector<std::pair<std::vector<ImuConstPtr>, ImgConstPtr>>	对齐后的IMU数据与相机数据
 */
 std::vector<std::pair<std::vector<ImuConstPtr>, ImgConstPtr>> System::getMeasurements()
 {
     std::vector<std::pair<std::vector<ImuConstPtr>, ImgConstPtr>> measurements;
-
+	/* 对IMU和图像数据进行对齐组合，直到把缓存中的图像数据或者IMU数据读完，才能跳出函数返回数据 */
     while (true) {
-		/* 检查IMU数据和图像特征数据是否为空 */
+		/* 检查imu_buf是否为空 */
 		if (imu_buf.empty()) {
 			std::cerr << "imu_buf.empty()" << std::endl;
 			return measurements;
 		}
+		/* 检查feature_buf是否为空 */
         if (feature_buf.empty()) {
             std::cerr << "feature_buf.empty()" << std::endl;
             return measurements;
         }
-
+		/* IMU中最新的数据时间戳小于图像帧中最旧的数据，此时等待IMU数据刷新 */
         if (!(imu_buf.back()->header > feature_buf.front()->header + estimator.td)) {
             std::cerr << "wait for imu, only should happen at the beginning sum_of_wait: " 
                 << sum_of_wait << std::endl;
             sum_of_wait++;
             return measurements;
         }
-
+		/* IMU中最旧的数据时间戳大于图像帧中最旧的数据，此时最旧的图像帧数据需要删除 */
         if (!(imu_buf.front()->header < feature_buf.front()->header + estimator.td)) {
             cerr << "throw img, only should happen at the beginning" << endl;
             feature_buf.pop();
@@ -270,21 +275,22 @@ std::vector<std::pair<std::vector<ImuConstPtr>, ImgConstPtr>> System::getMeasure
         }
         ImgConstPtr img_msg = feature_buf.front();
         feature_buf.pop();
-
+		/* 最理想的情况是最旧的IMU信息比最旧的图像信息还旧 */
         std::vector<ImuConstPtr> IMUs;
         while (imu_buf.front()->header < img_msg->header + estimator.td) {
             IMUs.emplace_back(imu_buf.front());
             imu_buf.pop();
         }
-        // cout << "1 getMeasurements IMUs size: " << IMUs.size() << endl;
+        /* 多放一组IMU信息进来，后面便于使用插值将时间戳完全对齐 */
+		/* 由于这组IMU信息没有pop，因此当前图形帧与下一图像帧会共用这组数据 */
         IMUs.emplace_back(imu_buf.front());
         if (IMUs.empty()){
             std::cerr << "no imu between two image" << std::endl;
         }
-        // cout << "1 getMeasurements img t: " << fixed << img_msg->header
-        //     << " imu begin: "<< IMUs.front()->header 
-        //     << " end: " << IMUs.back()->header
-        //     << endl;
+        // std::cout << "1 getMeasurements img t: " << fixed << img_msg->header
+        //			<< " imu begin: "<< IMUs.front()->header 
+        //			<< " end: " << IMUs.back()->header
+        //			<< std::endl;
         measurements.emplace_back(IMUs, img_msg);
     }
     return measurements;
