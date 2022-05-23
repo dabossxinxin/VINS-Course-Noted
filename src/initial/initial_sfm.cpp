@@ -340,8 +340,8 @@ bool GlobalSFM::construct(int& frame_num, std::vector<Eigen::Quaterniond>& q, st
 	}
 
 	/* 保存初始SFM的点云 */
-	std::string DebugPath = "C:\\Users\\Administrator\\Desktop\\SFMCLOUD_AFTER_OPT.txt";
-	Utility::SavePointCloudTXT(DebugPath, sfm_tracked_points);
+	/*std::string DebugPath = "C:\\Users\\Administrator\\Desktop\\SFMCLOUD_AFTER_OPT.txt";
+	Utility::SavePointCloudTXT(DebugPath, sfm_tracked_points);*/
 	/* 正常返回 */
 	return true;
 }

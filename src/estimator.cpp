@@ -23,7 +23,8 @@ Estimator::Estimator() : f_manager{Rs}
     clearState();
 }
 
-/**@brief 设置VIO里程计所需的参数
+/*
+*  @brief 设置VIO里程计所需的参数
 */
 void Estimator::setParameter()
 {
@@ -40,7 +41,8 @@ void Estimator::setParameter()
     td = TD;
 }
 
-/**@brief 清空VIO里程计的所有相关成员变量
+/*
+*  @brief 清空VIO里程计的所有相关成员变量
 */
 void Estimator::clearState()
 {
@@ -272,11 +274,8 @@ bool Estimator::initialStructure()
     }
     
 	/* 开始进行纯视觉SFM */
-    std::vector<Eigen::Quaterniond> Q(frame_count + 1);
-    std::vector<Eigen::Vector3d> T(frame_count + 1);
-    std::map<int, Eigen::Vector3d> sfm_tracked_points;
-    std::vector<SFMFeature> sfm_f;
 	/* 获取SFM中输入的所有特征点信息 */
+    std::vector<SFMFeature> sfm_f;
     for (auto &it_per_id : f_manager.feature)
     {
         int imu_j = it_per_id.start_frame - 1;
@@ -297,11 +296,14 @@ bool Estimator::initialStructure()
     Eigen::Vector3d relative_T;
     if (!relativePose(relative_R, relative_T, l))
     {
-        std::cout << "Not enough features or parallax; Move device around" << std::endl;
+        std::cout << "Not Enough Features or Parallax; Move Device Around" << std::endl;
         return false;
     }
     GlobalSFM sfm;
 	int count_new = frame_count + 1;
+	std::map<int, Eigen::Vector3d> sfm_tracked_points;
+	std::vector<Eigen::Quaterniond> Q(frame_count + 1);
+	std::vector<Eigen::Vector3d> T(frame_count + 1);
     if (!sfm.construct(count_new, Q, T, l,
                        relative_R, relative_T,
                        sfm_f, sfm_tracked_points))
@@ -312,10 +314,10 @@ bool Estimator::initialStructure()
     }
 
     //solve pnp for all frame
-    map<double, ImageFrame>::iterator frame_it;
-    map<int, Vector3d>::iterator it;
+    std::map<double, ImageFrame>::iterator frame_it;
+    std::map<int, Vector3d>::iterator it;
     frame_it = all_image_frame.begin();
-    for (int i = 0; frame_it != all_image_frame.end(); frame_it++)
+    for (int i = 0; frame_it != all_image_frame.end(); ++frame_it)
     {
         // provide initial guess
         cv::Mat r, rvec, t, D, tmp_r;
