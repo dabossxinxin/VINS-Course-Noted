@@ -1,5 +1,10 @@
 ﻿#include "utility/utility.h"
 
+/*!
+*  @brief 将重力向量旋转至与z(0,0,1)平行，并输出旋转矩阵
+*  @detail 由于绕z旋转，yaw观测不到，这里的做法是令yaw为0
+*  @param[in]	g	重力向量
+*/
 Eigen::Matrix3d Utility::g2R(const Eigen::Vector3d &g)
 {
     Eigen::Matrix3d R0;

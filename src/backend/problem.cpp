@@ -94,20 +94,24 @@ void Problem::AddOrderingSLAM(std::shared_ptr<myslam::backend::Vertex> v) {
 *  @brief 添加顶点后，需要调整先验Hessian&先验残差的大小
 *  @param[in]   v   新加入的顶点
 */
-void Problem::ResizePoseHessiansWhenAddingPose(shared_ptr<Vertex> v) {
+void Problem::ResizePoseHessiansWhenAddingPose(shared_ptr<Vertex> v) 
+{
     /* 扩充先验Hessian矩阵&先验残差矩阵的维度 */
     int size = H_prior_.rows() + v->LocalDimension();
     H_prior_.conservativeResize(size, size);
     b_prior_.conservativeResize(size);
+
     /* 以上扩充维度的部分全部设置为零 */
     b_prior_.tail(v->LocalDimension()).setZero();
     H_prior_.rightCols(v->LocalDimension()).setZero();
     H_prior_.bottomRows(v->LocalDimension()).setZero();
-
 }
 
 /*!
 *  @brief 按照既定要求扩充先验信息矩阵及残差矩阵的维度
+*  @detail 边缘化掉某些优化量后，Hessian矩阵和b矩阵维度会降低，
+*          在新的状态进来后，先验Hessian矩阵和b矩阵维度需要和，
+*          新的滑窗中状态量的维度保持一致，因此要扩充先验维度；
 *  @param[in]   dim   需扩充的维度
 */
 void Problem::ExtendHessiansPriorSize(int dim) {
@@ -168,12 +172,15 @@ bool Problem::AddEdge(shared_ptr<Edge> edge) {
 *  @param[in]   vertex                          需获取链接边的顶点
 *  @return  std::vector<std::shared_ptr<Edge>>  输入顶点链接的边
 */
-std::vector<shared_ptr<Edge>> Problem::GetConnectedEdges(std::shared_ptr<Vertex> vertex) {
+std::vector<shared_ptr<Edge>> Problem::GetConnectedEdges(std::shared_ptr<Vertex> vertex)
+{
     std::vector<shared_ptr<Edge>> edges;
     auto range = vertexToEdge_.equal_range(vertex->Id());
-    for (auto iter = range.first; iter != range.second; ++iter) {
+    for (auto iter = range.first; iter != range.second; ++iter) 
+	{
         /* 在优化问题的所有边中寻找vertex节点对应的边 */
-        if (edges_.find(iter->second->Id()) == edges_.end()) {
+        if (edges_.find(iter->second->Id()) == edges_.end()) 
+		{
             continue;
         }
         edges.emplace_back(iter->second);
@@ -375,27 +382,36 @@ bool Problem::CheckOrdering() {
 
 /*!
 *  @brief 构造大Hessian矩阵
+*  @detail 1：遍历所有edge，构造关于优化变量的Hessian矩阵
+*          2：若有先验信息，将先验信息与所构造的Hessian相加
 */
-void Problem::MakeHessian() {
+void Problem::MakeHessian() 
+{
     /* 记录Hessian矩阵的构造时间 */
     TicToc t_h;
-    /* 直接构造Hessian矩阵 */
+
+	/* 1 通用问题：ordering_generic_=odering_generic_ */
+	/* 2 SLAM问题：ordering_generic_=ordering_pose_+ordering_landmark_ */
     ulong size = ordering_generic_;
     MatXX H(MatXX::Zero(size, size));
     VecX b(VecX::Zero(size));
+
 	/* 遍历edge_：计算Hessian矩阵 */
 	#ifdef USE_OPENMP
 //#pragma omp parallel for
 	#endif
-    for (auto &edge: edges_) {
+    for (auto &edge: edges_)
+	{
         edge.second->ComputeResidual();
         edge.second->ComputeJacobians();
 
         auto jacobians = edge.second->Jacobians();
         auto verticies = edge.second->Verticies();
         assert(jacobians.size() == verticies.size());
-        for (size_t i = 0; i < verticies.size(); ++i) {
+        for (size_t i = 0; i < verticies.size(); ++i) 
+		{
             auto v_i = verticies[i];
+
 			/* 若顶点固定，则对应雅可比为0 */
             if (v_i->IsFixed()) continue;
 
@@ -409,7 +425,8 @@ void Problem::MakeHessian() {
             edge.second->RobustInfo(drho,robustInfo);
 
             MatXX JtW = jacobian_i.transpose() * robustInfo;
-            for (size_t j = i; j < verticies.size(); ++j) {
+            for (size_t j = i; j < verticies.size(); ++j)
+			{
                 auto v_j = verticies[j];
 
                 if (v_j->IsFixed()) continue;
@@ -438,29 +455,32 @@ void Problem::MakeHessian() {
         MatXX H_prior_tmp = H_prior_;
         VecX b_prior_tmp = b_prior_;
 
-        /// 遍历所有 POSE 顶点，然后设置相应的先验维度为0.  fix 外参数, SET PRIOR TO ZERO
-        /// landmark 没有先验
-        for (auto vertex: verticies_) {
-            if (IsPoseVertex(vertex.second) && vertex.second->IsFixed() ) {
+        /* 将顶点集合中被固定的顶点先验设为0：固定顶点不变化不需要雅可比 */
+        for (auto vertex: verticies_) 
+		{
+            if (IsPoseVertex(vertex.second) && vertex.second->IsFixed() ) 
+			{
                 int idx = vertex.second->OrderingId();
                 int dim = vertex.second->LocalDimension();
                 H_prior_tmp.block(idx,0, dim, H_prior_tmp.cols()).setZero();
                 H_prior_tmp.block(0,idx, H_prior_tmp.rows(), dim).setZero();
                 b_prior_tmp.segment(idx,dim).setZero();
-                //std::cout << " fixed prior, set the Hprior and bprior part to zero, idx: "<<idx <<" dim: "<<dim<<std::endl;
             }
         }
+
+		/* 先验中仅仅包含Pose先验，而没有LandMark先验 */
         Hessian_.topLeftCorner(ordering_poses_, ordering_poses_) += H_prior_tmp;
         b_.head(ordering_poses_) += b_prior_tmp;
     }
 
-    delta_x_ = VecX::Zero(size);  // initial delta_x = 0_n;
+    delta_x_ = VecX::Zero(size);
 }
 
 /*!
 *  @brief 求解线性方程
 */
-void Problem::SolveLinearSystem() {
+void Problem::SolveLinearSystem()
+{
     /* 求解通用问题线性方程 */
     if (problemType_ == ProblemType::GENERIC_PROBLEM) {
         /* Hessian矩阵添加Lambda参数 */
@@ -510,11 +530,12 @@ void Problem::SolveLinearSystem() {
     }
 }
 
-void Problem::UpdateStates() {
-
-    // update vertex
-    for (auto vertex: verticies_) {
-        vertex.second->BackUpParameters();    // 保存上次的估计值
+void Problem::UpdateStates() 
+{
+    for (auto vertex: verticies_) 
+	{
+		/* 当前的顶点参数值保存一份，防止下一次迭代不成功没有备份数据恢复 */
+        vertex.second->BackUpParameters();
 
         ulong idx = vertex.second->OrderingId();
         ulong dim = vertex.second->LocalDimension();
@@ -522,15 +543,14 @@ void Problem::UpdateStates() {
         vertex.second->Plus(delta);
     }
 
-    // update prior
-    if (err_prior_.rows() > 0) {
-        // BACK UP b_prior_
+    if (err_prior_.rows() > 0)
+	{
+        /* 做个备份，下一次迭代效果不好再返回 */
         b_prior_backup_ = b_prior_;
         err_prior_backup_ = err_prior_;
 
-        /// update with first order Taylor, b' = b + \frac{\delta b}{\delta x} * \delta x
-        /// \delta x = Computes the linearized deviation from the references (linearization points)
-        b_prior_ -= H_prior_ * delta_x_.head(ordering_poses_);       // update the error_prior
+		/* 状态量更新后，可以在新的线性化点重新泰勒展开，更新先验残差 */
+        b_prior_ -= H_prior_ * delta_x_.head(ordering_poses_);
         err_prior_ = -Jt_prior_inv_ * b_prior_.head(ordering_poses_ - 15);
 
 //        std::cout << "                : "<< b_prior_.norm()<<" " <<err_prior_.norm()<< std::endl;
@@ -541,12 +561,14 @@ void Problem::UpdateStates() {
 void Problem::RollbackStates() {
 
     // update vertex
-    for (auto vertex: verticies_) {
+    for (auto vertex: verticies_) 
+	{
         vertex.second->RollBackParameters();
     }
 
     // Roll back prior_
-    if (err_prior_.rows() > 0) {
+    if (err_prior_.rows() > 0)
+	{
         b_prior_ = b_prior_backup_;
         err_prior_ = err_prior_backup_;
     }
@@ -643,7 +665,8 @@ bool Problem::IsGoodStepInLM() {
  *  the jacobi PCG method
  *
  */
-VecX Problem::PCGSolver(const MatXX &A, const VecX &b, int maxIter = -1) {
+VecX Problem::PCGSolver(const MatXX &A, const VecX &b, int maxIter = -1) 
+{
     assert(A.rows() == A.cols() && "PCG solver ERROR: A is not a square matrix");
     int rows = b.rows();
     int n = maxIter < 0 ? rows : maxIter;
@@ -675,56 +698,66 @@ VecX Problem::PCGSolver(const MatXX &A, const VecX &b, int maxIter = -1) {
     return x;
 }
 
-/*
- *  marg 所有和 frame 相连的 edge: imu factor, projection factor
- *  如果某个landmark和该frame相连，但是又不想加入marg, 那就把改edge先去掉
- */
-bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertexs, int pose_dim) {
-
+/*!
+*  @brief 边缘化掉所有与margVertexs相链接的edge：包括视觉edge与IMU edge
+*  @detail 若某个LandMark与Pose相连，但是又不想边缘化，那就把Edge去掉
+*          通过这个函数的内容可以发现这里边缘化始终维护了相机Pose相关的信息，
+*		   而对于路标点的先验信息，则没有维护，是否VINS中也是这个思路呢？？
+*  @param[in]	margVertex	当前优化问题中需要边缘化掉的状态量
+*  @param[in]	pose_dim	当前优化问题中所有帧的P、V、Q、Bg、Ba的维度
+*/
+bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex>> margVertexs, int pose_dim) 
+{
+	/* 设置优化问题中各类顶点的ID */
     SetOrdering();
-    /// 找到需要 marg 的 edge, margVertexs[0] is frame, its edge contained pre-intergration
+
+    /* 获取待边缘化相机位姿对应的视觉edge以及IMU edge*/
     std::vector<shared_ptr<Edge>> marg_edges = GetConnectedEdges(margVertexs[0]);
 
+	/* 获取待边缘化相机姿态相连的路标点信息，并重新设定路标点序号 */
+	int marg_landmark_size = 0;
     std::unordered_map<int, shared_ptr<Vertex>> margLandmark;
-    // 构建 Hessian 的时候 pose 的顺序不变，landmark的顺序要重新设定
-    int marg_landmark_size = 0;
-//    std::cout << "\n marg edge 1st id: "<< marg_edges.front()->Id() << " end id: "<<marg_edges.back()->Id()<<std::endl;
     for (size_t i = 0; i < marg_edges.size(); ++i) {
-//        std::cout << "marg edge id: "<< marg_edges[i]->Id() <<std::endl;
         auto verticies = marg_edges[i]->Verticies();
         for (auto iter : verticies) {
             if (IsLandmarkVertex(iter) && margLandmark.find(iter->Id()) == margLandmark.end()) {
                 iter->SetOrderingId(pose_dim + marg_landmark_size);
-                margLandmark.insert(make_pair(iter->Id(), iter));
+                margLandmark.insert(std::make_pair(iter->Id(), iter));
                 marg_landmark_size += iter->LocalDimension();
             }
         }
     }
-//    std::cout << "pose dim: " << pose_dim <<std::endl;
+
+	/* 确定Hessian矩阵的维度，并初始化Hessian矩阵 */
     int cols = pose_dim + marg_landmark_size;
-    /// 构建误差 H 矩阵 H = H_marg + H_pp_prior
     MatXX H_marg(MatXX::Zero(cols, cols));
     VecX b_marg(VecX::Zero(cols));
-    int ii = 0;
-    for (auto edge: marg_edges) {
+	
+	/* 遍历所有edge，构造Hessian矩阵以及b矩阵 */
+    int edge_cnt = 0;
+    for (auto edge: marg_edges)
+	{
         edge->ComputeResidual();
         edge->ComputeJacobians();
         auto jacobians = edge->Jacobians();
         auto verticies = edge->Verticies();
-        ii++;
+		edge_cnt++;
 
         assert(jacobians.size() == verticies.size());
-        for (size_t i = 0; i < verticies.size(); ++i) {
+        for (size_t i = 0; i < verticies.size(); ++i) 
+		{
             auto v_i = verticies[i];
             auto jacobian_i = jacobians[i];
             ulong index_i = v_i->OrderingId();
             ulong dim_i = v_i->LocalDimension();
 
+			/* 获取鲁棒核函数的相关信息 */
             double drho;
             MatXX robustInfo(edge->Information().rows(),edge->Information().cols());
             edge->RobustInfo(drho,robustInfo);
 
-            for (size_t j = i; j < verticies.size(); ++j) {
+            for (size_t j = i; j < verticies.size(); ++j)
+			{
                 auto v_j = verticies[j];
                 auto jacobian_j = jacobians[j];
                 ulong index_j = v_j->OrderingId();
@@ -733,22 +766,22 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
                 MatXX hessian = jacobian_i.transpose() * robustInfo * jacobian_j;
 
                 assert(hessian.rows() == v_i->LocalDimension() && hessian.cols() == v_j->LocalDimension());
-                // 所有的信息矩阵叠加起来
+
                 H_marg.block(index_i, index_j, dim_i, dim_j) += hessian;
-                if (j != i) {
-                    // 对称的下三角
+                if (j != i)
+				{
                     H_marg.block(index_j, index_i, dim_j, dim_i) += hessian.transpose();
                 }
             }
             b_marg.segment(index_i, dim_i) -= drho * jacobian_i.transpose() * edge->Information() * edge->Residual();
         }
-
     }
-        std::cout << "edge factor cnt: " << ii <<std::endl;
+    std::cout << "Edge Factor Cnt: " << edge_cnt <<std::endl;
 
-    /// marg landmark
+    /* 边缘化LandMark */
     int reserve_size = pose_dim;
-    if (marg_landmark_size > 0) {
+    if (marg_landmark_size > 0) 
+	{
         int marg_size = marg_landmark_size;
         MatXX Hmm = H_marg.block(reserve_size, reserve_size, marg_size, marg_size);
         MatXX Hpm = H_marg.block(0, reserve_size, reserve_size, marg_size);
@@ -756,10 +789,10 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
         VecX bpp = b_marg.segment(0, reserve_size);
         VecX bmm = b_marg.segment(reserve_size, marg_size);
 
-        // Hmm 是对角线矩阵，它的求逆可以直接为对角线块分别求逆，如果是逆深度，对角线块为1维的，则直接为对角线的倒数，这里可以加速
+		// TODO USE OpenMP
         MatXX Hmm_inv(MatXX::Zero(marg_size, marg_size));
-        // TODO:: use openMP
-        for (auto iter: margLandmark) {
+        for (auto iter: margLandmark)
+		{
             int idx = iter.second->OrderingId() - reserve_size;
             int size = iter.second->LocalDimension();
             Hmm_inv.block(idx, idx, size, size) = Hmm.block(idx, idx, size, size).inverse();
@@ -772,6 +805,7 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
         b_marg = bpp;
     }
 
+	/* 如果已经有先验，那么必须加上之前先验的影响 */
     VecX b_prior_before = b_prior_;
     if(H_prior_.rows() > 0)
     {
@@ -779,30 +813,27 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
         b_marg += b_prior_;
     }
 
-    /// marg frame and speedbias
+    /* 边缘化Pose和SpeedBias */
     int marg_dim = 0;
-
-    // index 大的先移动
-    for (int k = margVertexs.size() -1 ; k >= 0; --k)
-    {
-
+    for (int k = margVertexs.size()-1; k >= 0; --k)
+	{
         int idx = margVertexs[k]->OrderingId();
         int dim = margVertexs[k]->LocalDimension();
-//        std::cout << k << " "<<idx << std::endl;
+
         marg_dim += dim;
-        // move the marg pose to the Hmm bottown right
-        // 将 row i 移动矩阵最下面
-        Eigen::MatrixXd temp_rows = H_marg.block(idx, 0, dim, reserve_size);
-        Eigen::MatrixXd temp_botRows = H_marg.block(idx + dim, 0, reserve_size - idx - dim, reserve_size);
-        H_marg.block(idx, 0, reserve_size - idx - dim, reserve_size) = temp_botRows;
-        H_marg.block(reserve_size - dim, 0, dim, reserve_size) = temp_rows;
+        /* 将row i移动到矩阵最下面 */
+        Eigen::MatrixXd temp_rows = H_marg.block(idx, 0, dim, reserve_size);								// 获取Hmm的idx行
+        Eigen::MatrixXd temp_botRows = H_marg.block(idx + dim, 0, reserve_size - idx - dim, reserve_size);	// 获取Hmm中temp_rows下面所有行
+        H_marg.block(idx, 0, reserve_size - idx - dim, reserve_size) = temp_botRows;						// 将temp_botRows移动到temp_rows的位置
+        H_marg.block(reserve_size - dim, 0, dim, reserve_size) = temp_rows;									// 将最下面一行替换为temp_rows
 
-        // 将 col i 移动矩阵最右边
-        Eigen::MatrixXd temp_cols = H_marg.block(0, idx, reserve_size, dim);
-        Eigen::MatrixXd temp_rightCols = H_marg.block(0, idx + dim, reserve_size, reserve_size - idx - dim);
-        H_marg.block(0, idx, reserve_size, reserve_size - idx - dim) = temp_rightCols;
-        H_marg.block(0, reserve_size - dim, reserve_size, dim) = temp_cols;
+        /* 将col i移动到矩阵最右边 */
+        Eigen::MatrixXd temp_cols = H_marg.block(0, idx, reserve_size, dim);								// 获取Hmm的idx列
+        Eigen::MatrixXd temp_rightCols = H_marg.block(0, idx + dim, reserve_size, reserve_size - idx - dim);// 获取Hmm中temp_cols右边所有行
+        H_marg.block(0, idx, reserve_size, reserve_size - idx - dim) = temp_rightCols;						// 将temp_rightCols移动到temp_cols的位置
+        H_marg.block(0, reserve_size - dim, reserve_size, dim) = temp_cols;									// 将最右边一列替换为temp_cols
 
+		/* 按照同样的道理移动b矩阵中的元素 */
         Eigen::VectorXd temp_b = b_marg.segment(idx, dim);
         Eigen::VectorXd temp_btail = b_marg.segment(idx + dim, reserve_size - idx - dim);
         b_marg.segment(idx, reserve_size - idx - dim) = temp_btail;
@@ -811,13 +842,13 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
 
     double eps = 1e-8;
     int m2 = marg_dim;
-    int n2 = reserve_size - marg_dim;   // marg pose
+    int n2 = reserve_size - marg_dim;
     Eigen::MatrixXd Amm = 0.5 * (H_marg.block(n2, n2, m2, m2) + H_marg.block(n2, n2, m2, m2).transpose());
 
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes(Amm);
-    Eigen::MatrixXd Amm_inv = saes.eigenvectors() * Eigen::VectorXd(
-            (saes.eigenvalues().array() > eps).select(saes.eigenvalues().array().inverse(), 0)).asDiagonal() *
-                              saes.eigenvectors().transpose();
+	Eigen::MatrixXd Amm_inv = saes.eigenvectors() * Eigen::VectorXd(
+		(saes.eigenvalues().array() > eps).select(saes.eigenvalues().array().inverse(), 0)).asDiagonal()*
+		saes.eigenvectors().transpose();
 
     Eigen::VectorXd bmm2 = b_marg.segment(n2, m2);
     Eigen::MatrixXd Arm = H_marg.block(0, n2, n2, m2);
@@ -840,13 +871,10 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
 
     MatXX J = S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
     H_prior_ = J.transpose() * J;
-    MatXX tmp_h = MatXX( (H_prior_.array().abs() > 1e-9).select(H_prior_.array(),0) );
+    MatXX tmp_h = MatXX((H_prior_.array().abs() > 1e-9).select(H_prior_.array(),0));
     H_prior_ = tmp_h;
 
-    // std::cout << "my marg b prior: " <<b_prior_.rows()<<" norm: "<< b_prior_.norm() << std::endl;
-    // std::cout << "    error prior: " <<err_prior_.norm() << std::endl;
-
-    // remove vertex and remove edge
+    /* 边缘化顶点后，在优化问题中需要删除对应顶点 */
     for (size_t k = 0; k < margVertexs.size(); ++k) {
         RemoveVertex(margVertexs[k]);
     }

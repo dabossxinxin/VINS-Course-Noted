@@ -54,7 +54,7 @@ public:
 *  @param[out]       x                 相机与IMU之间的标定结果
 *  @return  是否将IMU与相机对齐的标志
 */
-bool VisualIMUAlignment(std::map<double, ImageFrame> &all_image_frame, 
+bool VisualIMUAlignment(std::map<double, ImageFrame> &all_image_frame,
                         Eigen::Vector3d *Bgs, 
                         Eigen::Vector3d &g, 
                         Eigen::VectorXd &x);

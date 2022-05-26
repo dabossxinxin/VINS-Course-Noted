@@ -74,14 +74,16 @@ public:
 	/*!
 	*  @brief 备份当前顶点的参数值：用于迭代中去除不好的估计
 	*/
-    void BackUpParameters() { 
+    void BackUpParameters()
+	{ 
 		parameters_backup_ = parameters_; 
 	}
 
 	/*!
 	*  @brief 将上一步迭代中的顶点参数值回滚到当前迭代顶点参数
 	*/
-    void RollBackParameters() {
+    void RollBackParameters()
+	{
 		parameters_ = parameters_backup_; 
 	}
 

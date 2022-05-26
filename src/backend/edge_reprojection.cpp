@@ -144,7 +144,8 @@ void EdgeReprojection::SetTranslationImuFromCamera(Eigen::Quaterniond &qic_, Vec
     tic = tic_;
 }
 
-void EdgeReprojection::ComputeJacobians() {
+void EdgeReprojection::ComputeJacobians() 
+{
     double inv_dep_i = verticies_[0]->Parameters()[0];
 
     VecX param_i = verticies_[1]->Parameters();

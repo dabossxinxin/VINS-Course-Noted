@@ -104,50 +104,95 @@ public:
     bool Marginalize(const std::shared_ptr<Vertex> frameVertex);
 
     /*!
-	*  @brief SLAM问题中边缘化指定Frame
+	*  @brief SLAM问题中边缘化指定Pose
 	*  @param[in]	frameVertex         待边缘化的Frame
-    *  @param[in]	pose_dim            Frame的维度
+    *  @param[in]	pose_dim            边缘化问题维度
     *  @return      bool                是否成功边缘化
 	*/
-    bool Marginalize(const std::vector<std::shared_ptr<Vertex> > frameVertex,int pose_dim);
+    bool Marginalize(const std::vector<std::shared_ptr<Vertex>> frameVertex, int pose_dim);
 
+	/*!
+	*  @brief 测试边缘化代码
+	*/
 	void TestMarginalize();
 
-    MatXX GetHessianPrior(){ 
+	/*!
+	*  @brief 获取边缘化后系统的先验Hessian矩阵
+	*  @return	MatXX	系统先验Hessian矩阵
+	*/
+    MatXX GetHessianPrior()
+	{ 
         return H_prior_;
     }
 
-    VecX GetbPrior(){ 
+	/*!
+	*  @brief 获取边缘化后系统的先验b矩阵
+	*  @return	VecX	系统先验b矩阵
+	*/
+    VecX GetbPrior()
+	{ 
         return b_prior_;
     }
 
-    VecX GetErrPrior(){
+	/*!
+	*  @brief 获取边缘化后系统的先验残差矩阵
+	*  @return	VecX	系统先验残差矩阵
+	*/
+    VecX GetErrPrior()
+	{
          return err_prior_;
     }
 
-    MatXX GetJtPrior(){
+	/*!
+	*  @brief 获取边缘化后系统的先验雅可比矩阵
+	*  @return	MatXX	系统先验雅可比矩阵
+	*/
+    MatXX GetJtPrior()
+	{
          return Jt_prior_inv_;
     }
 
-    void SetHessianPrior(const MatXX& H){
+	/*!
+	*  @brief 设置优化系统的先验Hessian矩阵
+	*  @param[in]	H	系统先验Hessian矩阵
+	*/
+    void SetHessianPrior(const MatXX& H)
+	{
         H_prior_ = H;
     }
 
-    void SetbPrior(const VecX& b){
+	/*!
+	*  @brief 设置优化系统的先验b矩阵
+	*  @param[in]	b	系统先验b矩阵
+	*/
+    void SetbPrior(const VecX& b)
+	{
         b_prior_ = b;
     }
 
-    void SetErrPrior(const VecX& b){
+	/*!
+	*  @brief 设置优化系统的先验残差矩阵
+	*  @param[in]	b	系统先验残差矩阵
+	*/
+    void SetErrPrior(const VecX& b)
+	{
         err_prior_ = b;
     }
 
-    void SetJtPrior(const MatXX& J){
+	/*!
+	*  @brief 设置优化系统的先验雅可比矩阵
+	*  @param[in]	J	系统先验雅可比矩阵
+	*/
+    void SetJtPrior(const MatXX& J)
+	{
         Jt_prior_inv_ = J;
     }
 
+	/*!
+	*  @brief 扩充先验Hessian矩阵的维度
+	*  @param[in]	dim	矩阵需扩充的维度
+	*/
     void ExtendHessiansPriorSize(int dim);
-
-    void TestComputePrior();
 
 private:
 
@@ -166,7 +211,9 @@ private:
     bool SolveSLAMProblem(int iterations);
 
     /*!
-	*  @brief 统计优化问题的维度：vertex维度及edge维度
+	*  @brief 统计优化问题顶点顺序
+	*  @detail 通用问题中，顶点种类单一，无需排序，只统计顶点总维度
+	*          SLAM问题中，顶点多种多样，保证Pose在LandMark前，并统计顶点总维度
 	*/
     void SetOrdering();
 
@@ -178,6 +225,8 @@ private:
 
     /*!
 	*  @brief 构造大Hessian矩阵
+	*  @detail 构造方法为遍历优化问题中的边，进而通过边
+	*          对顶点雅可比计算出Hessian矩阵指定位置的值  
 	*/
     void MakeHessian();
 
@@ -228,9 +277,14 @@ private:
 
     /*!
 	*  @brief 检查Ordering是否正确
+	*  @detail SLAM问题中，通过统计pose维度以及LandMark维度
+	*          来实现Hessian矩阵构造，因此必须保证两者正确
 	*/
     bool CheckOrdering();
 
+	/*!
+	*  @brief 没啥用，先放着
+	*/
     void LogoutVectorSize();
 
     /*!
@@ -246,12 +300,12 @@ private:
     void ComputeLambdaInitLM();
 
     /*!
-	*  @brief Hessian矩阵添加Lambda元素
+	*  @brief Hessian矩阵添加Lambda元素，这个版本没用
 	*/
     void AddLambdatoHessianLM();
 
     /*!
-	*  @brief Hessian矩阵去除Lambda元素
+	*  @brief Hessian矩阵去除Lambda元素，这个版本没用
 	*/
     void RemoveLambdaHessianLM();
 
@@ -293,9 +347,9 @@ private:
     MatXX H_prior_;
     /*!< @brief 先验残差矩阵 */
     VecX b_prior_;
-    /*!< @brief 上一迭代过程先验残差矩阵：用于回退 */
+    /*!< @brief 上一迭代过程先验b：用于回退 */
     VecX b_prior_backup_;
-    /*!< @brief TODO：上一迭代过程先验误差：用于回退 */
+    /*!< @brief 上一迭代过程先验残差：用于回退 */
     VecX err_prior_backup_;
     /*!< @brief 先验雅可比的逆 */
     MatXX Jt_prior_inv_;
@@ -322,11 +376,11 @@ private:
     /*!< @brief 当前优化问题中由Vertex ID查询对应的边 */
     HashVertexIdToEdge vertexToEdge_;
 
-    /*!< @brief Pose Order相关 */
+    /*!< @brief Pose维度总量 */
     ulong ordering_poses_ = 0;
-    /*!< @brief LandMark Order相关 */
+    /*!< @brief LandMark维度总量 */
     ulong ordering_landmarks_ = 0;
-    /*!< @brief 通用问题顶点Order相关 */
+    /*!< @brief 通用问题顶点维度总量 */
     ulong ordering_generic_ = 0;
     /*!< @brief Ordering后的Pose顶点 */
     std::map<unsigned long, std::shared_ptr<Vertex>> idx_pose_vertices_;

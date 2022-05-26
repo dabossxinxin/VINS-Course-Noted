@@ -59,11 +59,13 @@ class Estimator
 
 	/*!
 	*  @brief 视觉SFM获取初始的相机姿态及路标点
+	*  @detail	bool	纯视觉SFM是否成功
 	*/
     bool initialStructure();
 
 	/*!
 	*  @brief 视觉&IMU联合初始化
+	*  @return	bool	相机与IMU是否成功对齐
 	*/
     bool visualInitialAlign();
 
@@ -92,7 +94,14 @@ class Estimator
     void optimization();
     void backendOptimization();
 
+	/*!
+	*  @brief 优化滑窗中的状态量的具体实现
+	*/
     void problemSolve();
+
+	/*!
+	*  @brief 滑窗中去掉滑窗中的最老帧
+	*/
     void MargOldFrame();
     void MargNewFrame();
 
@@ -128,13 +137,20 @@ class Estimator
     Eigen::MatrixXd Ap[2], backup_A;
     Eigen::VectorXd bp[2], backup_b;
 
+	/*!< @brief IMU-Camera旋转外参 */
     Eigen::Matrix3d ric[NUM_OF_CAM];
+	/*!< @brief IMU-Camera平移外参 */
     Eigen::Vector3d tic[NUM_OF_CAM];
 
+	/*!< @brief 滑窗中所有关键帧的位置 */
     Eigen::Vector3d Ps[(WINDOW_SIZE + 1)];
+	/*!< @brief 滑窗中所有关键帧的速度 */
     Eigen::Vector3d Vs[(WINDOW_SIZE + 1)];
+	/*!< @brief 滑窗中所有关键帧的旋转 */
     Eigen::Matrix3d Rs[(WINDOW_SIZE + 1)];
+	/*!< @brief 滑窗中所有关键帧的加速度偏置 */
     Eigen::Vector3d Bas[(WINDOW_SIZE + 1)];
+	/*!< @brief 滑窗中所有关键帧的陀螺仪偏置 */
     Eigen::Vector3d Bgs[(WINDOW_SIZE + 1)];
     double td;
 
@@ -177,7 +193,7 @@ class Estimator
 
     // MarginalizationInfo *last_marginalization_info;
     vector<double *> last_marginalization_parameter_blocks;
-    map<double, ImageFrame> all_image_frame;
+    std::map<double, ImageFrame> all_image_frame;
     IntegrationBase *tmp_pre_integration;
 
     // relocalization variable

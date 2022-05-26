@@ -18,6 +18,7 @@ class VertexPose : public Vertex {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
+	/* 输入参数维度为7，实际上参数化维度为6 */
     VertexPose() : Vertex(7, 6) {}
 
     /// 加法，可重定义

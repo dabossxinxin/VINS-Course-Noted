@@ -199,10 +199,13 @@ VectorXd FeatureManager::getDepthVector()
     return dep_vec;
 }
 
-void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
+/* TODO：此处对归一化相机坐标进行了修改 */
+void FeatureManager::triangulate(Eigen::Vector3d Ps[], Eigen::Vector3d tic[], Eigen::Matrix3d ric[])
 {
     for (auto &it_per_id : feature)
     {
+		/* 1：三角化的特征需要同时被观测两次以上 */
+		/* 2：最开始观测到该特征的相机不能是滑窗中最后三帧 */
         it_per_id.used_num = it_per_id.feature_per_frame.size();
         if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < WINDOW_SIZE - 2))
             continue;
@@ -213,7 +216,6 @@ void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
 
         assert(NUM_OF_CAM == 1);
         Eigen::MatrixXd svd_A(2 * it_per_id.feature_per_frame.size(), 4);
-        int svd_idx = 0;
 
         Eigen::Matrix<double, 3, 4> P0;
         Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
@@ -221,6 +223,7 @@ void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
         P0.leftCols<3>() = Eigen::Matrix3d::Identity();
         P0.rightCols<1>() = Eigen::Vector3d::Zero();
 
+		int svd_idx = 0;
         for (auto &it_per_frame : it_per_id.feature_per_frame)
         {
             imu_j++;
@@ -232,7 +235,8 @@ void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
             Eigen::Matrix<double, 3, 4> P;
             P.leftCols<3>() = R.transpose();
             P.rightCols<1>() = -R.transpose() * t;
-            Eigen::Vector3d f = it_per_frame.point.normalized();
+            //Eigen::Vector3d f = it_per_frame.point.normalized();
+			Eigen::Vector3d f = it_per_frame.point / it_per_frame.point.z();
             svd_A.row(svd_idx++) = f[0] * P.row(2) - f[2] * P.row(0);
             svd_A.row(svd_idx++) = f[1] * P.row(2) - f[2] * P.row(1);
 
@@ -252,7 +256,6 @@ void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
         {
             it_per_id.estimated_depth = INIT_DEPTH;
         }
-
     }
 }
 

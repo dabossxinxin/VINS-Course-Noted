@@ -247,4 +247,4 @@ bool VisualIMUAlignment(std::map<double, ImageFrame> &all_image_frame,
     } else { 
         return false; 
     }
-}
+ }
