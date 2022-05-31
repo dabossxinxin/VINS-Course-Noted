@@ -47,7 +47,7 @@ void PubImuData()
 		/* 将IMU数据加入到系统中 */
 		pSystem->PubImuData(dStampNSec / 1e9, vGyr, vAcc);
 		//usleep(5000*nDelayTimes);
-		cv::waitKey(5000*nDelayTimes);
+		cv::waitKey(10);
 	}
 	/* 关闭IMU句柄 */
 	fsImu.close();
@@ -86,7 +86,7 @@ void PubImageData()
 		/* 将图像数据加入到VIO系统中 */
 		pSystem->PubImageData(dStampNSec / 1e9, img);
 		//usleep(50000*nDelayTimes);
-		cv::waitKey(50000*nDelayTimes);
+		cv::waitKey(500);
 	}
 	/* 关闭图像句柄 */
 	fsImage.close();

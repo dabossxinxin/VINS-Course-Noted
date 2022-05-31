@@ -33,6 +33,7 @@ void Estimator::setParameter()
         tic[i] = TIC[i];
         ric[i] = RIC[i];
     }
+	//g << 0, 0, 9.81;
     std::cout << "1 Estimator::setParameter FOCAL_LENGTH: " 
               << FOCAL_LENGTH << std::endl;
     f_manager.setRic(ric);
@@ -108,17 +109,20 @@ void Estimator::clearState()
 */
 void Estimator::processIMU(double dt, const Vector3d &linear_acceleration, const Vector3d &angular_velocity)
 {
-    if (!first_imu) {
+    if (!first_imu)
+	{
         first_imu = true;
         acc_0 = linear_acceleration;
         gyr_0 = angular_velocity;
     }
 
-    if (!pre_integrations[frame_count]) {
+    if (!pre_integrations[frame_count])
+	{
         pre_integrations[frame_count] = new IntegrationBase{acc_0, gyr_0, Bas[frame_count], Bgs[frame_count]};
     }
 
-    if (frame_count != 0) {
+    if (frame_count != 0) 
+	{
         pre_integrations[frame_count]->push_back(dt, linear_acceleration, angular_velocity);
         //if(solver_flag != NON_LINEAR)
         tmp_pre_integration->push_back(dt, linear_acceleration, angular_velocity);
@@ -294,6 +298,7 @@ bool Estimator::initialStructure()
         }
         sfm_f.push_back(tmp_feature);
     }
+
 	/* 获取SFM中的参考帧索引l */
 	int l = 0;
     Eigen::Matrix3d relative_R;
@@ -303,6 +308,8 @@ bool Estimator::initialStructure()
         std::cout << "Not Enough Features or Parallax; Move Device Around" << std::endl;
         return false;
     }
+
+	/* 视觉SFM恢复滑窗中所有帧的位姿和路标点 */
     GlobalSFM sfm;
 	int count_new = frame_count + 1;
 	std::map<int, Eigen::Vector3d> sfm_tracked_points;
@@ -317,13 +324,12 @@ bool Estimator::initialStructure()
         return false;
     }
 
-    //solve pnp for all frame
+    /* 通过PnP恢复所有帧的位置和姿态 */
     std::map<double, ImageFrame>::iterator frame_it;
     std::map<int, Vector3d>::iterator it;
     frame_it = all_image_frame.begin();
     for (int i = 0; frame_it != all_image_frame.end(); ++frame_it)
     {
-        // provide initial guess
         cv::Mat r, rvec, t, D, tmp_r;
         if ((frame_it->first) == Headers[i])
         {
@@ -366,7 +372,7 @@ bool Estimator::initialStructure()
         cv::Mat K = (cv::Mat_<double>(3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, 1);
         if (pts_3_vector.size() < 6)
         {
-            std::cout << "Not enough points for solve pnp pts_3_vector size " << pts_3_vector.size() << std::endl;
+            std::cout << "Not Enough Points For Solve PnP Pts_3_vector Size " << pts_3_vector.size() << std::endl;
             return false;
         }
         if (!cv::solvePnP(pts_3_vector, pts_2_vector, K, D, rvec, t, 1))
@@ -384,11 +390,15 @@ bool Estimator::initialStructure()
         frame_it->second.R = R_pnp * RIC[0].transpose();
         frame_it->second.T = T_pnp;
     }
-    if (visualInitialAlign())
-        return true;
+
+	/* 将IMU预积分结果与视觉SFM结果对齐 */
+	if (visualInitialAlign())
+	{
+		return true;
+	}
     else
     {
-        cout << "MisAlign Visual Structure With IMU" << endl;
+        std::cout << "MisAlign Visual Structure With IMU" << std::endl;
         return false;
     }
 }
@@ -731,13 +741,13 @@ bool Estimator::failureDetection()
     Vector3d tmp_P = Ps[WINDOW_SIZE];
     if ((tmp_P - last_P).norm() > 5)
     {
-		std::cout << "Big Translation" << std::endl;
-        return true;
+		/*std::cout << "Big Translation" << std::endl;
+        return true;*/
     }
     if (abs(tmp_P.z() - last_P.z()) > 1)
     {
-		std::cout << "Big Z Translation" << std::endl;
-        return true;
+		/*std::cout << "Big Z Translation" << std::endl;
+        return true;*/
     }
     Matrix3d tmp_R = Rs[WINDOW_SIZE];
     Matrix3d delta_R = tmp_R.transpose() * last_R;

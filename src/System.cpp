@@ -187,7 +187,7 @@ void System::PubImageData(double dStampSec, const std::vector<cv::Point2f>& feat
 		return;
 	}
 
-	if (dStampSec - last_image_time > 1, 0 || dStampSec < last_image_time) {
+	if (dStampSec - last_image_time > 1.0 || dStampSec < last_image_time) {
 		std::cerr << "3 PubImageData image discontinue! reset the feature tracker!" << std::endl;
 		first_image_flag = true;
 		last_image_time = 0;
@@ -208,7 +208,7 @@ void System::PubImageData(double dStampSec, const std::vector<cv::Point2f>& feat
 				hash_ids[iti].insert(p_id);
 				double x = featurePoints[itj].x;
 				double y = featurePoints[itj].y;
-				double z = 1;
+				double z = 1.0;
 				feature_points->points.push_back(Eigen::Vector3d(x, y, z));
 				feature_points->id_of_point.push_back(p_id*NUM_OF_CAM + iti);
 
@@ -252,12 +252,12 @@ std::vector<std::pair<std::vector<ImuConstPtr>, ImgConstPtr>> System::getMeasure
     while (true) {
 		/* 检查imu_buf是否为空 */
 		if (imu_buf.empty()) {
-			std::cerr << "imu_buf.empty()" << std::endl;
+			//std::cerr << "imu_buf.empty()" << std::endl;
 			return measurements;
 		}
 		/* 检查feature_buf是否为空 */
         if (feature_buf.empty()) {
-            std::cerr << "feature_buf.empty()" << std::endl;
+            //std::cerr << "feature_buf.empty()" << std::endl;
             return measurements;
         }
 		/* IMU中最新的数据时间戳小于图像帧中最旧的数据，此时等待IMU数据刷新 */
@@ -313,8 +313,8 @@ void System::PubImuData(double dStampSec, const Eigen::Vector3d &vGyr,
 	imu_msg->angular_velocity = vGyr;
 	
 	/* 检查传入的IMU数据时间戳是否正常 */
-	std::cout << "last_imu_t: " << last_imu_t << " "
-		<< "dStampSec: " << dStampSec << std::endl;
+	/*std::cout << "last_imu_t: " << last_imu_t << " "
+		<< "dStampSec: " << dStampSec << std::endl;*/
     if (dStampSec <= last_imu_t) {
         std::cerr << "Imu Message In Disorder!" << std::endl;
         return;
@@ -423,6 +423,8 @@ void System::ProcessBackEnd()
             }
             TicToc t_processImage;
             estimator.processImage(image, img_msg->header);
+
+
             
             if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
             {
@@ -437,11 +439,18 @@ void System::ProcessBackEnd()
 					<< " stamp: " <<  dStamp 
 					<< " p_wi: " << p_wi.transpose() 
 					<< std::endl;
-                ofs_pose << fixed 
-					<< dStamp << " " 
-					<< p_wi.transpose() << " " 
-					<< q_wi.coeffs().transpose() 
-					<< std::endl;
+
+				/* 以TUM格式保存数据，方便轨迹精度评价 */
+				ofs_pose.precision(9);
+				ofs_pose << dStamp << " ";
+				ofs_pose.precision(5);
+                ofs_pose << p_wi(0) << " "
+						<< p_wi(1) << " "
+						<< p_wi(2) << " "
+						<< q_wi.x() << " "
+						<< q_wi.y() << " "
+						<< q_wi.z() << " "
+						<< q_wi.w() << std::endl;
             }
         }
         m_estimator.unlock();

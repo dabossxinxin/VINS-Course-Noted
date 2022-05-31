@@ -25,10 +25,12 @@ namespace backend {
 /*!
 *  @brief 打印调试信息
 */
-void Problem::LogoutVectorSize() {
-    // LOG(INFO) <<
-    //           "1 problem::LogoutVectorSize verticies_:" << verticies_.size() <<
-    //           " edges:" << edges_.size();
+void Problem::LogoutVectorSize() 
+{
+     /*LOG(INFO) << "1 problem::LogoutVectorSize verticies_:" 
+		 << verticies_.size() 
+		 << " edges:" 
+		 << edges_.size();*/
 }
 
 /*!
@@ -36,7 +38,9 @@ void Problem::LogoutVectorSize() {
 *  @param[in]   problemType 优化问题类型
 */
 Problem::Problem(ProblemType problemType) :
-    problemType_(problemType) {
+    problemType_(problemType),deltaX_norm_threshold_(1e-8),
+	delta_chi_threshold_(1e-8)
+{
     LogoutVectorSize();
     verticies_marg_.clear();
 }
@@ -55,7 +59,8 @@ Problem::~Problem() {
 *  @param[in]	vertex	待优化顶点
 *  @retuan		bool	是否成功添加顶点
 */
-bool Problem::AddVertex(std::shared_ptr<Vertex> vertex) {
+bool Problem::AddVertex(std::shared_ptr<Vertex> vertex) 
+{
     /* 判断节点vertex是否已经添加到优化问题中 */
     if (verticies_.find(vertex->Id()) != verticies_.end()) {
         std::cout << "Vertex " << vertex->Id() << " Has Been Added Before" << std::endl;
@@ -76,7 +81,8 @@ bool Problem::AddVertex(std::shared_ptr<Vertex> vertex) {
 *  @brief SLAM问题中设置新加入顶点的顺序
 *  @param[in]   v   新加入SLAM问题中的顶点
 */
-void Problem::AddOrderingSLAM(std::shared_ptr<myslam::backend::Vertex> v) {
+void Problem::AddOrderingSLAM(std::shared_ptr<myslam::backend::Vertex> v) 
+{
     /* SLAM问题中添加Pose顶点 */
     if (IsPoseVertex(v)) {
         v->SetOrderingId(ordering_poses_);
@@ -114,7 +120,8 @@ void Problem::ResizePoseHessiansWhenAddingPose(shared_ptr<Vertex> v)
 *          新的滑窗中状态量的维度保持一致，因此要扩充先验维度；
 *  @param[in]   dim   需扩充的维度
 */
-void Problem::ExtendHessiansPriorSize(int dim) {
+void Problem::ExtendHessiansPriorSize(int dim) 
+{
     /* 扩充先验Hessian矩阵&先验残差矩阵的维度 */
     int size = H_prior_.rows() + dim;
     H_prior_.conservativeResize(size, size);
@@ -130,7 +137,8 @@ void Problem::ExtendHessiansPriorSize(int dim) {
 *  @param[in]   v       输入顶点
 *  @return      bool    输入节点是否为Pose节点
 */
-bool Problem::IsPoseVertex(std::shared_ptr<myslam::backend::Vertex> v) {
+bool Problem::IsPoseVertex(std::shared_ptr<myslam::backend::Vertex> v) 
+{
     string type = v->TypeInfo();
     return type == string("VertexPose") ||
             type == string("VertexSpeedBias");
@@ -141,7 +149,8 @@ bool Problem::IsPoseVertex(std::shared_ptr<myslam::backend::Vertex> v) {
 *  @param[in]   v       输入顶点
 *  @return      bool    输入节点是否为Pose节点
 */
-bool Problem::IsLandmarkVertex(std::shared_ptr<myslam::backend::Vertex> v) {
+bool Problem::IsLandmarkVertex(std::shared_ptr<myslam::backend::Vertex> v)
+{
     string type = v->TypeInfo();
     return type == string("VertexPointXYZ") ||
            type == string("VertexInverseDepth");
@@ -193,7 +202,8 @@ std::vector<shared_ptr<Edge>> Problem::GetConnectedEdges(std::shared_ptr<Vertex>
 *  @param[in]	vertex	待优化顶点
 *  @return		bool	是否成功移除顶点
 */
-bool Problem::RemoveVertex(std::shared_ptr<Vertex> vertex) {
+bool Problem::RemoveVertex(std::shared_ptr<Vertex> vertex) 
+{
     /* 查询当前待删除的节点是否存在于优化问题的所有节点中 */
     if (verticies_.find(vertex->Id()) == verticies_.end()) {
         std::cout << "The Vertex " << vertex->Id() << " Is Not In The Problem!" << std::endl;
@@ -224,7 +234,8 @@ bool Problem::RemoveVertex(std::shared_ptr<Vertex> vertex) {
 *  @param[in]	vertex	待移除边
 *  @return		bool	是否成功移除边
 */
-bool Problem::RemoveEdge(std::shared_ptr<Edge> edge) {
+bool Problem::RemoveEdge(std::shared_ptr<Edge> edge) 
+{
     /* 检查待删除的边是否在优化问题的边集合中 */
     if (edges_.find(edge->Id()) == edges_.end()) {
         std::cout << "The Edge " << edge->Id() << " Is Not In The Problem!" << std::endl;
@@ -241,9 +252,11 @@ bool Problem::RemoveEdge(std::shared_ptr<Edge> edge) {
 *  @param[in]	iterations  非线性优化迭代次数
 *  @return      bool        非线性优化问题是否成功收敛
 */
-bool Problem::Solve(int iterations) {
+bool Problem::Solve(int iterations) 
+{
     /* 检查优化问题中是否具有顶点元素以及边元素 */
-    if (edges_.size() == 0 || verticies_.size() == 0) {
+    if (edges_.size() == 0 || verticies_.size() == 0) 
+	{
         std::cerr << "\nCannot Solve Problem Without Edges Or Verticies" << std::endl;
         return false;
     }
@@ -259,60 +272,47 @@ bool Problem::Solve(int iterations) {
     bool stop = false;
     int iter = 0;
     double last_chi_ = 1e+20;
-    while (!stop && (iter < iterations)) {
+    while (!stop && (iter < iterations))
+	{
         /* 打印优化的关键信息 */
         std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Lambda= " << currentLambda_ << std::endl;
-        bool oneStepSuccess = false;
-        int false_cnt = 0;
+		
+		int false_cnt = 0;
+		bool oneStepSuccess = false;
+        
         /* 不断尝试Lambda：直到成功迭代一步 */
-        while (!oneStepSuccess && false_cnt < 10) {
-            // setLambda
-//            AddLambdatoHessianLM();
-            // 第四步，解线性方程
+        while (!oneStepSuccess && false_cnt < 10) 
+		{
+			/* 求解delta_x */
             SolveLinearSystem();
-            //
-//            RemoveLambdaHessianLM();
 
-            // 优化退出条件1： delta_x_ 很小则退出
-//            if (delta_x_.squaredNorm() <= 1e-6 || false_cnt > 10)
-            // TODO:: 退出条件还是有问题, 好多次误差都没变化了，还在迭代计算，应该搞一个误差不变了就中止
-//            if ( false_cnt > 10)
-//            {
-//                stop = true;
-//                break;
-//            }
-            // 更新状态量
+            /* 优化退出条件1：delata_x很小，那么退出迭代 */
+			if (this->delta_x_.squaredNorm() <= deltaX_norm_threshold_) {
+				stop = true;
+			}
+
+            /* 更新状态量delta_x */
             UpdateStates();
-            // 判断当前步是否可行以及 LM 的 lambda 怎么更新, chi2 也计算一下
-            oneStepSuccess = IsGoodStepInLM();
-            // 后续处理，
-            if (oneStepSuccess) {
-//                std::cout << " get one step success\n";
 
-                // 在新线性化点 构建 hessian
+            /* 判断当前迭代是否使残差下降，并更新Lambda */
+            oneStepSuccess = IsGoodStepInLM();
+
+            if (oneStepSuccess)
+			{
+                /* 在新的线性化点，构建Hessian矩阵 */
                 MakeHessian();
-                // TODO:: 这个判断条件可以丢掉，条件 b_max <= 1e-12 很难达到，这里的阈值条件不应该用绝对值，而是相对值
-//                double b_max = 0.0;
-//                for (int i = 0; i < b_.size(); ++i) {
-//                    b_max = max(fabs(b_(i)), b_max);
-//                }
-//                // 优化退出条件2： 如果残差 b_max 已经很小了，那就退出
-//                stop = (b_max <= 1e-12);
                 false_cnt = 0;
             } else {
-                false_cnt ++;
-                RollbackStates();   // 误差没下降，回滚
+                false_cnt++;
+				/* 误差并没有下降，回滚到上一步状态量 */
+                RollbackStates();
             }
         }
         iter++;
 
-        // 优化退出条件3： currentChi_ 跟第一次的 chi2 相比，下降了 1e6 倍则退出
-        // TODO:: 应该改成前后两次的误差已经不再变化
-//        if (sqrt(currentChi_) <= stopThresholdLM_)
-//        if (sqrt(currentChi_) < 1e-15)
-        if(last_chi_ - currentChi_ < 1e-6)
+        /*优化退出条件3：与上一步残差相比，已经不怎么下降了*/
+        if(last_chi_ - currentChi_ < delta_chi_threshold_)
         {
-            //std::cout << "sqrt(currentChi_) <= stopThresholdLM_" << std::endl;
             stop = true;
         }
         last_chi_ = currentChi_;
@@ -333,46 +333,58 @@ bool Problem::SolveGenericProblem(int iterations) {
 }
 
 /*!
-*  @brief 统计优化问题的维度：vertex维度及edge维度
+*  @brief 设置优化问题中各个顶点的ID
+*  @detail 遍历加入优化问题中的顶点，计算pose数量以及landmark数量，
+*          并且ordering_generic=ordering_poses+ordering_landmarks
 */
-void Problem::SetOrdering() {
+void Problem::SetOrdering() 
+{
     /* 初始化维度 */
     ordering_poses_ = 0;
     ordering_generic_ = 0;
     ordering_landmarks_ = 0;
     /* 统计优化问题中顶点维度 */
-    for (auto vertex: verticies_) {
+    for (auto vertex: verticies_) 
+	{
         ordering_generic_ += vertex.second->LocalDimension();
         /* 如果是SLAM问题：需要分别统计Pose与LandMark维度 */
-        if (problemType_ == ProblemType::SLAM_PROBLEM) {
+        if (problemType_ == ProblemType::SLAM_PROBLEM) 
+		{
             AddOrderingSLAM(vertex.second);
         }
     }
     /* 此处需要把LandMark的Ordering加上Pose的数量：保证LandMark顺序在后Pose在前 */
-    if (problemType_ == ProblemType::SLAM_PROBLEM) {
+    if (problemType_ == ProblemType::SLAM_PROBLEM) 
+	{
         ulong all_pose_dimension = ordering_poses_;
-        for (auto landmarkVertex : idx_landmark_vertices_) {
+        for (auto landmarkVertex : idx_landmark_vertices_) 
+		{
             landmarkVertex.second->SetOrderingId(
                 landmarkVertex.second->OrderingId() + all_pose_dimension
             );
         }
     }
-    //CHECK_EQ(CheckOrdering(), true);
 }
 
 /*!
 *  @brief 检查Ordering是否正确
+*  @detail 只有在SLAM问题中需要检查顶点ID是否成功设置；
+*          检查方法为将遍历所有顶点，并且统计pose顶点与landmark的顶点数量
 */
-bool Problem::CheckOrdering() {
-    if (problemType_ == ProblemType::SLAM_PROBLEM) {
+bool Problem::CheckOrdering()
+{
+    if (problemType_ == ProblemType::SLAM_PROBLEM) 
+	{
         int current_ordering = 0;
         /* 检查Pose节点的顺序是否正确 */
-        for (auto v: idx_pose_vertices_) {
+        for (auto v: idx_pose_vertices_)
+		{
             assert(v.second->OrderingId() == current_ordering);
             current_ordering += v.second->LocalDimension();
         }
         /* 检查LandMark节点的顺序是否正确 */
-        for (auto v: idx_landmark_vertices_) {
+        for (auto v: idx_landmark_vertices_) 
+		{
             assert(v.second->OrderingId() == current_ordering);
             current_ordering += v.second->LocalDimension();
         }
@@ -478,6 +490,9 @@ void Problem::MakeHessian()
 
 /*!
 *  @brief 求解线性方程
+*  @detail 求解线性方程时，根据问题的性质提供了两种求解方法
+*          通用问题：直接求解Hessian矩阵的逆求解优化量增量
+*          SLAM问题：边缘化掉landmark后，求解剩下的矩阵逆求解优化量增量
 */
 void Problem::SolveLinearSystem()
 {
@@ -530,11 +545,15 @@ void Problem::SolveLinearSystem()
     }
 }
 
+/*!
+*  @brief 一次迭代求解完毕后，将状态量更新
+*  @detail 更新状态量时，需要将状态量值备份；并且根据新的线性化点更新先验残差
+*/
 void Problem::UpdateStates() 
 {
+	/* 更新各个顶点的参数值，更新前，记录该参数值 */
     for (auto vertex: verticies_) 
 	{
-		/* 当前的顶点参数值保存一份，防止下一次迭代不成功没有备份数据恢复 */
         vertex.second->BackUpParameters();
 
         ulong idx = vertex.second->OrderingId();
@@ -543,6 +562,7 @@ void Problem::UpdateStates()
         vertex.second->Plus(delta);
     }
 
+	/* 根据新的状态量，更新先验残差 */
     if (err_prior_.rows() > 0)
 	{
         /* 做个备份，下一次迭代效果不好再返回 */
@@ -552,21 +572,23 @@ void Problem::UpdateStates()
 		/* 状态量更新后，可以在新的线性化点重新泰勒展开，更新先验残差 */
         b_prior_ -= H_prior_ * delta_x_.head(ordering_poses_);
         err_prior_ = -Jt_prior_inv_ * b_prior_.head(ordering_poses_ - 15);
-
-//        std::cout << "                : "<< b_prior_.norm()<<" " <<err_prior_.norm()<< std::endl;
-//        std::cout << "     delta_x_ ex: "<< delta_x_.head(6).norm() << std::endl;
     }
 }
 
-void Problem::RollbackStates() {
-
-    // update vertex
+/*!
+*  @brief 一次迭代中，并没有使损失函数下降，此时需要将状态量调整
+*         到上一状态，更新Lambada，重新迭代
+*  @detail 需调整到上一迭代过程的变量包括顶点参数值以及先验残差项
+*/
+void Problem::RollbackStates()
+{
+	/* 将顶点参数值调整到上一状态 */   
     for (auto vertex: verticies_) 
 	{
         vertex.second->RollBackParameters();
     }
 
-    // Roll back prior_
+    /* 将先验残差调整到上一状态 */
     if (err_prior_.rows() > 0)
 	{
         b_prior_ = b_prior_backup_;
@@ -574,30 +596,38 @@ void Problem::RollbackStates() {
     }
 }
 
-/// LM
-void Problem::ComputeLambdaInitLM() {
+/*!
+*  @brief 根据Hessian矩阵值计算初始Lambda，并计算初始迭代状态残差
+*  @detail 计算初始状态损失函数值，此时使用了鲁棒核函数表示，并计算
+*          Hessian矩阵的最大对角元素，当作初始Lambda的计算基准
+*/
+void Problem::ComputeLambdaInitLM()
+{
 	/* 设置初始的迭代控制参数 */
-    ni_ = 2.;
-    currentLambda_ = -1.;
+    ni_ = 2.; 
+    currentLambda_ = 0.0;
     currentChi_ = 0.0;
 
 	/* 计算初始的损失函数值 */
-    for (auto edge: edges_) {
+    for (auto edge: edges_) 
+	{
         currentChi_ += edge.second->RobustChi2();
     }
-	if (err_prior_.rows() > 0) {
+	if (err_prior_.rows() > 0) 
+	{
 		currentChi_ += err_prior_.norm();
 	}
     currentChi_ *= 0.5;
 	
-    //stopThresholdLM_ = 1e-10 * currentChi_;
 	/* 计算Hessian矩阵对角元素最大值 */
     double maxDiagonal = 0;
     ulong size = Hessian_.cols();
     assert(Hessian_.rows() == Hessian_.cols() && "Hessian Is Not Square");
-    for (ulong i = 0; i < size; ++i) {
+    for (ulong i = 0; i < size; ++i) 
+	{
         maxDiagonal = (std::max)((std::fabs)(Hessian_(i, i)), maxDiagonal);
     }
+
 	/* 计算初始的阻尼因子 */
 	double tau = 1e-5;
     maxDiagonal = std::min(1e+10, maxDiagonal);
@@ -626,25 +656,33 @@ void Problem::RemoveLambdaHessianLM() {
     }
 }
 
-bool Problem::IsGoodStepInLM() {
+/*!
+*  @brief 判断当前迭代是否是满足要求的迭代
+*  @detail 通过计算参数rho，判断当前迭代是否是好的迭代：损失函数下降，
+*          同时根据rho更新Lambda
+*/
+bool Problem::IsGoodStepInLM() 
+{
     double scale = 0;
-//    scale = 0.5 * delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
-//    scale += 1e-3;    // make sure it's non-zero :)
     scale = 0.5* delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
-    scale += 1e-6;    // make sure it's non-zero :)
+    scale += 1e-6; 
 
-    // recompute residuals after update state
+    /* 状态量更新后，重新计算损失函数值 */
     double tempChi = 0.0;
-    for (auto edge: edges_) {
+    for (auto edge: edges_) 
+	{
         edge.second->ComputeResidual();
         tempChi += edge.second->RobustChi2();
     }
-    if (err_prior_.size() > 0)
-        tempChi += err_prior_.norm();
-    tempChi *= 0.5;          // 1/2 * err^2
-
+	if (err_prior_.size() > 0)
+	{
+		tempChi += err_prior_.norm();
+	}
+    tempChi *= 0.5;
     double rho = (currentChi_ - tempChi) / scale;
-    if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
+
+	/* 损失函数在下降 */
+    if (rho > 0 && isfinite(tempChi))
     {
         double alpha = 1. - pow((2 * rho - 1), 3);
         alpha = std::min(alpha, 2. / 3.);
@@ -653,49 +691,51 @@ bool Problem::IsGoodStepInLM() {
         ni_ = 2;
         currentChi_ = tempChi;
         return true;
-    } else {
+    } 
+	/* 损失函数并没有下降 */
+	else 
+	{
         currentLambda_ *= ni_;
         ni_ *= 2;
         return false;
     }
 }
 
-/** @brief conjugate gradient with perconditioning
- *
- *  the jacobi PCG method
- *
- */
+/*!
+*  @brief 通过共轭梯度下降法计算Ax=b的解
+*/
 VecX Problem::PCGSolver(const MatXX &A, const VecX &b, int maxIter = -1) 
 {
-    assert(A.rows() == A.cols() && "PCG solver ERROR: A is not a square matrix");
-    int rows = b.rows();
-    int n = maxIter < 0 ? rows : maxIter;
-    VecX x(VecX::Zero(rows));
-    MatXX M_inv = A.diagonal().asDiagonal().inverse();
-    VecX r0(b);  // initial r = b - A*0 = b
-    VecX z0 = M_inv * r0;
-    VecX p(z0);
-    VecX w = A * p;
-    double r0z0 = r0.dot(z0);
-    double alpha = r0z0 / p.dot(w);
-    VecX r1 = r0 - alpha * w;
-    int i = 0;
-    double threshold = 1e-6 * r0.norm();
-    while (r1.norm() > threshold && i < n) {
-        i++;
-        VecX z1 = M_inv * r1;
-        double r1z1 = r1.dot(z1);
-        double belta = r1z1 / r0z0;
-        z0 = z1;
-        r0z0 = r1z1;
-        r0 = r1;
-        p = belta * p + z1;
-        w = A * p;
-        alpha = r1z1 / p.dot(w);
-        x += alpha * p;
-        r1 -= alpha * w;
-    }
-    return x;
+	assert(A.rows() == A.cols() && "PCG solver ERROR: A is not a square matrix");
+	int rows = b.rows();
+	int n = maxIter < 0 ? rows : maxIter;
+	VecX x(VecX::Zero(rows));
+	MatXX M_inv = A.diagonal().asDiagonal().inverse();
+	VecX r0(b);  // initial r = b - A*0 = b
+	VecX z0 = M_inv * r0;
+	VecX p(z0);
+	VecX w = A * p;
+	double r0z0 = r0.dot(z0);
+	double alpha = r0z0 / p.dot(w);
+	VecX r1 = r0 - alpha * w;
+	int i = 0;
+	double threshold = 1e-6 * r0.norm();
+	while (r1.norm() > threshold && i < n)
+	{
+		i++;
+		VecX z1 = M_inv * r1;
+		double r1z1 = r1.dot(z1);
+		double belta = r1z1 / r0z0;
+		z0 = z1;
+		r0z0 = r1z1;
+		r0 = r1;
+		p = belta * p + z1;
+		w = A * p;
+		alpha = r1z1 / p.dot(w);
+		x += alpha * p;
+		r1 -= alpha * w;
+	}
+	return x;
 }
 
 /*!
@@ -886,7 +926,11 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex>> margVertexs
     return true;
 }
 
-void Problem::TestMarginalize() {
+/*!
+*  @brief 测试边缘化写法是否正确
+*/
+void Problem::TestMarginalize() 
+{
 	int idx = 1;
 	int dim = 1;
 	int reserve_size = 3;

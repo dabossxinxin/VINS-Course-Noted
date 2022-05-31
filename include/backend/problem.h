@@ -180,6 +180,24 @@ public:
     }
 
 	/*!
+	*  @brief 设置优化系统退出条件阈值
+	*  @param[in]	deltaX_norm_threshold	deltaX变化阈值
+	*/
+	void SetDeltaXThreshold(const double& deltaX_norm_threshold)
+	{
+		deltaX_norm_threshold_ = deltaX_norm_threshold;
+	}
+
+	/*!
+	*  @brief 设置优化系统退出条件阈值
+	*  @param[in]	delta_chi_threshold	chi变化阈值
+	*/
+	void SetDeltaChiThreshold(const double& delta_chi_threshold)
+	{
+		delta_chi_threshold_ = delta_chi_threshold;
+	}
+
+	/*!
 	*  @brief 设置优化系统的先验雅可比矩阵
 	*  @param[in]	J	系统先验雅可比矩阵
 	*/
@@ -396,6 +414,11 @@ private:
     double t_hessian_cost_ = 0.0;
     /*!< @brief PCG线性方程求解的时间 */
     double t_PCGsovle_cost_ = 0.0;
+
+	/*!< @brief 优化退出条件：状态量模值 */
+	double deltaX_norm_threshold_;
+	double delta_chi_threshold_;
+
 };
 
 }

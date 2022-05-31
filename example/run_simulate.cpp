@@ -25,7 +25,7 @@ std::shared_ptr<System> pSystem;
 void PubImuData()
 {
 	/* 设置IMU数据句柄 */
-	std::string sImu_data_file = "D:\\Code\\VINS-Course-Noted\\config\\simulate\\imu_pose_noise.txt";
+	std::string sImu_data_file = "D:\\Code\\VINS-Course-Noted\\config\\simulate\\imu_pose.txt";
 	std::cout << "1 PubImuData Start sImu_data_file: " << sImu_data_file << std::endl;
 	std::ifstream fsImu;
 	fsImu.open(sImu_data_file.c_str());
@@ -49,7 +49,7 @@ void PubImuData()
 		/* 将IMU数据加入到系统中 */
 		pSystem->PubImuData(dStampNSec, vGyr, vAcc);
 		//usleep(5000*nDelayTimes);
-		cv::waitKey(5 * nDelayTimes);
+		cv::waitKey(3);
 	}
 	/* 关闭IMU句柄 */
 	fsImu.close();
@@ -104,7 +104,7 @@ void PubImageData()
 		/* 将图像数据加入到VIO系统中 */
 		pSystem->PubImageData(dStampNSec, featurePoints);
 		//usleep(50000*nDelayTimes);
-		cv::waitKey(50 * nDelayTimes);
+		cv::waitKey(50);
 		n++;
 	}
 	/* 关闭图像句柄 */

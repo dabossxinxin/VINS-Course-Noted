@@ -22,6 +22,7 @@ void GetSimDataInWorldFrame(std::vector<Frame>& cameraPoses, std::vector<Eigen::
 	int featureNums = 2000;
 	int poseNums = 10;
 	
+	/* 获取相机姿态 */
 	double radius = 8;
 	for (int it = 0; it < poseNums; ++it) {
 		double theta = it * 2 * M_PI / (poseNums * 4);
@@ -42,15 +43,16 @@ void GetSimDataInWorldFrame(std::vector<Frame>& cameraPoses, std::vector<Eigen::
 
 		for (int i = 0; i < poseNums; ++i) {
 			Eigen::Vector3d Pc = cameraPoses[i].Rwc.transpose()*(Pw - cameraPoses[i].twc);
-			Pc = Pc / Pc.z();               // 归一化图像平面
-			Pc[0] += noise_pdf(generator);  // 高斯噪声
-			Pc[1] += noise_pdf(generator);
+			Pc = Pc / Pc.z();               // 归一化图像平面坐标
+			Pc[0] += noise_pdf(generator);  // 为图像平面坐标添加噪声
+			Pc[1] += noise_pdf(generator);	// 为图像平面坐标添加噪声
 			cameraPoses[i].featurePerId.insert(std::make_pair(it, Pc));
 		}
 	}
 }
 
-int main() {
+int main() 
+{
 	// 准备数据
 	std::vector<Frame> cameras;
 	std::vector<Eigen::Vector3d> points;
@@ -68,6 +70,7 @@ int main() {
 		pose << cameras[it].twc, cameras[it].qwc.x(), cameras[it].qwc.y(), cameras[it].qwc.z(), cameras[it].qwc.w();
 		vertexCam->SetParameters(pose);
 
+		/* 前两帧相机位姿固定不求解 */
 		if (it < 2) {
 			vertexCam->SetFixed();
 		}
@@ -87,7 +90,9 @@ int main() {
 
 	/* 向优化问题中添加边 */
 	std::vector<std::shared_ptr<VertexInverseDepth>> allPoints;
-	for (int iti = 0; iti < points.size(); ++iti) {
+	for (int iti = 0; iti < points.size(); ++iti) 
+	{
+		/* 计算路标点逆深度 */
 		Eigen::Vector3d Pw = points[iti];
 		Eigen::Vector3d Pc = cameras[0].Rwc.transpose()*(Pw - cameras[0].twc);
 		noise = noise_pdf(generator);
@@ -103,7 +108,8 @@ int main() {
 		problem.AddVertex(vertexPoint);
 		allPoints.push_back(vertexPoint);
 
-		for (int itj = 1; itj < cameras.size(); ++itj) {
+		for (int itj = 1; itj < cameras.size(); ++itj)
+		{
 			Eigen::Vector3d pt_i = cameras[0].featurePerId.find(iti)->second;
 			Eigen::Vector3d pt_j = cameras[itj].featurePerId.find(iti)->second;
 

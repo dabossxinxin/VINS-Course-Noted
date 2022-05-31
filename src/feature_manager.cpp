@@ -25,12 +25,17 @@ void FeatureManager::clearState()
     feature.clear();
 }
 
+/*!
+*  @brief 获取特征点管理器中满足要求的特征个数
+*  @detail 1：特征点的被跟踪次数大于两次
+		   2：特征点首次被观测的帧不是滑窗中的后面的帧
+*  @return	int	特征点管理器中满足要求的特征个数
+*/
 int FeatureManager::getFeatureCount()
 {
     int cnt = 0;
     for (auto &it : feature)
     {
-
         it.used_num = it.feature_per_frame.size();
 
         if (it.used_num >= 2 && it.start_frame < WINDOW_SIZE - 2)
@@ -235,8 +240,8 @@ void FeatureManager::triangulate(Eigen::Vector3d Ps[], Eigen::Vector3d tic[], Ei
             Eigen::Matrix<double, 3, 4> P;
             P.leftCols<3>() = R.transpose();
             P.rightCols<1>() = -R.transpose() * t;
-            //Eigen::Vector3d f = it_per_frame.point.normalized();
-			Eigen::Vector3d f = it_per_frame.point / it_per_frame.point.z();
+            Eigen::Vector3d f = it_per_frame.point.normalized();
+			//Eigen::Vector3d f = it_per_frame.point / it_per_frame.point.z();
             svd_A.row(svd_idx++) = f[0] * P.row(2) - f[2] * P.row(0);
             svd_A.row(svd_idx++) = f[1] * P.row(2) - f[2] * P.row(1);
 
