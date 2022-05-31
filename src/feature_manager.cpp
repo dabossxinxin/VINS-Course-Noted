@@ -47,7 +47,7 @@ int FeatureManager::getFeatureCount()
 }
 
 
-bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, double td)
+bool FeatureManager::addFeatureCheckParallax(int frame_count, const std::map<int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>> &image, double td)
 {
     //ROS_DEBUG("input feature: %d", (int)image.size());
     //ROS_DEBUG("num of feature: %d", getFeatureCount());
@@ -122,7 +122,7 @@ void FeatureManager::debugShow()
     }
 }
 
-vector<pair<Vector3d, Vector3d>> FeatureManager::getCorresponding(int frame_count_l, int frame_count_r)
+std::vector<std::pair<Vector3d, Vector3d>> FeatureManager::getCorresponding(int frame_count_l, int frame_count_r)
 {
     vector<pair<Vector3d, Vector3d>> corres;
     for (auto &it : feature)
@@ -143,7 +143,7 @@ vector<pair<Vector3d, Vector3d>> FeatureManager::getCorresponding(int frame_coun
     return corres;
 }
 
-void FeatureManager::setDepth(const VectorXd &x)
+void FeatureManager::setDepth(const Eigen::VectorXd &x)
 {
     int feature_index = -1;
     for (auto &it_per_id : feature)

@@ -129,6 +129,7 @@ private:
     double last_imu_t = -1;
     std::ofstream ofs_pose;
     std::vector<Eigen::Vector3d> vPath_to_draw;
+	std::vector<Eigen::Vector3d> vLandMark_to_draw;
     bool bStart_backend;
 
 	/*!

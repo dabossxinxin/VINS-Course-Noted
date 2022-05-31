@@ -82,7 +82,7 @@ public:
 
     /*!
 	*  @brief 求解当前的优化问题
-	*  @param[in]	iterations  非线性优化迭代次数
+	*  @param[in]	iterations  非线性优化迭代次数，默认10次
     *  @return      bool        非线性优化问题是否成功收敛
 	*/
     bool Solve(int iterations = 10);
@@ -415,10 +415,10 @@ private:
     /*!< @brief PCG线性方程求解的时间 */
     double t_PCGsovle_cost_ = 0.0;
 
-	/*!< @brief 优化退出条件：状态量模值 */
+	/*!< @brief 优化退出条件：状态量更新值 */
 	double deltaX_norm_threshold_;
+	/*!< @brief 优化退出条件：损失函数变化值 */
 	double delta_chi_threshold_;
-
 };
 
 }

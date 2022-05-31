@@ -9,8 +9,6 @@
     #include <omp.h>
 #endif
 
-using namespace std;
-
 // define the format you want, you only need one instance of this...
 const static Eigen::IOFormat CSVFormat(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", "\n");
 
@@ -35,11 +33,12 @@ void Problem::LogoutVectorSize()
 
 /*!
 *  @brief 优化问题构造函数
+*  @detail 初始化问题类型，迭代中止阈值
 *  @param[in]   problemType 优化问题类型
 */
 Problem::Problem(ProblemType problemType) :
-    problemType_(problemType),deltaX_norm_threshold_(1e-8),
-	delta_chi_threshold_(1e-8)
+    problemType_(problemType),deltaX_norm_threshold_(1e-6),
+	delta_chi_threshold_(1e-6)
 {
     LogoutVectorSize();
     verticies_marg_.clear();
@@ -49,7 +48,8 @@ Problem::Problem(ProblemType problemType) :
 *  @brief 优化问题析构函数
 *  @param[in]   problemType 优化问题类型
 */
-Problem::~Problem() {
+Problem::~Problem() 
+{
     std::cout << "Problem Is Deleted"<<std::endl;
     global_vertex_id = 0;
 }
@@ -66,7 +66,7 @@ bool Problem::AddVertex(std::shared_ptr<Vertex> vertex)
         std::cout << "Vertex " << vertex->Id() << " Has Been Added Before" << std::endl;
         return false;
     } else {
-        verticies_.insert(pair<unsigned long, shared_ptr<Vertex>>(vertex->Id(), vertex));
+        verticies_.insert(std::pair<unsigned long, std::shared_ptr<Vertex>>(vertex->Id(), vertex));
     }
     /* SLAM问题中，添加vertex后需要扩充Hessian矩阵维度 */
     if (problemType_ == ProblemType::SLAM_PROBLEM) {
@@ -86,13 +86,13 @@ void Problem::AddOrderingSLAM(std::shared_ptr<myslam::backend::Vertex> v)
     /* SLAM问题中添加Pose顶点 */
     if (IsPoseVertex(v)) {
         v->SetOrderingId(ordering_poses_);
-        idx_pose_vertices_.insert(pair<ulong, std::shared_ptr<Vertex>>(v->Id(), v));
+        idx_pose_vertices_.insert(std::pair<ulong, std::shared_ptr<Vertex>>(v->Id(), v));
         ordering_poses_ += v->LocalDimension();
     /* SLAM问题中添加LandMark顶点 */
     } else if (IsLandmarkVertex(v)) {
         v->SetOrderingId(ordering_landmarks_);
         ordering_landmarks_ += v->LocalDimension();
-        idx_landmark_vertices_.insert(pair<ulong, std::shared_ptr<Vertex>>(v->Id(), v));
+        idx_landmark_vertices_.insert(std::pair<ulong, std::shared_ptr<Vertex>>(v->Id(), v));
     }
 }
 
@@ -100,7 +100,7 @@ void Problem::AddOrderingSLAM(std::shared_ptr<myslam::backend::Vertex> v)
 *  @brief 添加顶点后，需要调整先验Hessian&先验残差的大小
 *  @param[in]   v   新加入的顶点
 */
-void Problem::ResizePoseHessiansWhenAddingPose(shared_ptr<Vertex> v) 
+void Problem::ResizePoseHessiansWhenAddingPose(std::shared_ptr<Vertex> v) 
 {
     /* 扩充先验Hessian矩阵&先验残差矩阵的维度 */
     int size = H_prior_.rows() + v->LocalDimension();
@@ -139,9 +139,9 @@ void Problem::ExtendHessiansPriorSize(int dim)
 */
 bool Problem::IsPoseVertex(std::shared_ptr<myslam::backend::Vertex> v) 
 {
-    string type = v->TypeInfo();
-    return type == string("VertexPose") ||
-            type == string("VertexSpeedBias");
+    std::string type = v->TypeInfo();
+    return type == std::string("VertexPose") ||
+           type == std::string("VertexSpeedBias");
 }
 
 /*!
@@ -151,9 +151,9 @@ bool Problem::IsPoseVertex(std::shared_ptr<myslam::backend::Vertex> v)
 */
 bool Problem::IsLandmarkVertex(std::shared_ptr<myslam::backend::Vertex> v)
 {
-    string type = v->TypeInfo();
-    return type == string("VertexPointXYZ") ||
-           type == string("VertexInverseDepth");
+    std::string type = v->TypeInfo();
+    return type == std::string("VertexPointXYZ") ||
+           type == std::string("VertexInverseDepth");
 }
 
 /*!
@@ -161,17 +161,18 @@ bool Problem::IsLandmarkVertex(std::shared_ptr<myslam::backend::Vertex> v)
 *  @param[in]	vertex	待添加边
 *  @return		bool	是否成功添加边
 */
-bool Problem::AddEdge(shared_ptr<Edge> edge) {
+bool Problem::AddEdge(std::shared_ptr<Edge> edge) 
+{
     /* 判断边edge是否已经添加到优化问题中 */
     if (edges_.find(edge->Id()) == edges_.end()) {
-        edges_.insert(pair<ulong, std::shared_ptr<Edge>>(edge->Id(), edge));
+        edges_.insert(std::pair<ulong, std::shared_ptr<Edge>>(edge->Id(), edge));
     } else {
         std::cerr << "Edge " << edge->Id() << " Has Been Added Before!";
         return false;
     }
     /* 更新vertexToEdge_，便于由vertex查询edge */
     for (auto &vertex: edge->Verticies()) {
-        vertexToEdge_.insert(pair<ulong, shared_ptr<Edge>>(vertex->Id(), edge));
+        vertexToEdge_.insert(std::pair<ulong, std::shared_ptr<Edge>>(vertex->Id(), edge));
     }
     return true;
 }
@@ -181,9 +182,9 @@ bool Problem::AddEdge(shared_ptr<Edge> edge) {
 *  @param[in]   vertex                          需获取链接边的顶点
 *  @return  std::vector<std::shared_ptr<Edge>>  输入顶点链接的边
 */
-std::vector<shared_ptr<Edge>> Problem::GetConnectedEdges(std::shared_ptr<Vertex> vertex)
+std::vector<std::shared_ptr<Edge>> Problem::GetConnectedEdges(std::shared_ptr<Vertex> vertex)
 {
-    std::vector<shared_ptr<Edge>> edges;
+    std::vector<std::shared_ptr<Edge>> edges;
     auto range = vertexToEdge_.equal_range(vertex->Id());
     for (auto iter = range.first; iter != range.second; ++iter) 
 	{
@@ -210,7 +211,7 @@ bool Problem::RemoveVertex(std::shared_ptr<Vertex> vertex)
         return false;
     }
     /* 删除节点vertex对应的edge */
-    vector<shared_ptr<Edge>> remove_edges = GetConnectedEdges(vertex);
+    std::vector<std::shared_ptr<Edge>> remove_edges = GetConnectedEdges(vertex);
     for (size_t i = 0; i < remove_edges.size(); i++) {
         RemoveEdge(remove_edges[i]);
     }
@@ -752,11 +753,11 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex>> margVertexs
     SetOrdering();
 
     /* 获取待边缘化相机位姿对应的视觉edge以及IMU edge*/
-    std::vector<shared_ptr<Edge>> marg_edges = GetConnectedEdges(margVertexs[0]);
+    std::vector<std::shared_ptr<Edge>> marg_edges = GetConnectedEdges(margVertexs[0]);
 
 	/* 获取待边缘化相机姿态相连的路标点信息，并重新设定路标点序号 */
 	int marg_landmark_size = 0;
-    std::unordered_map<int, shared_ptr<Vertex>> margLandmark;
+    std::unordered_map<int, std::shared_ptr<Vertex>> margLandmark;
     for (size_t i = 0; i < marg_edges.size(); ++i) {
         auto verticies = marg_edges[i]->Verticies();
         for (auto iter : verticies) {

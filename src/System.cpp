@@ -5,10 +5,10 @@ using namespace std;
 using namespace cv;
 using namespace pangolin;
 
-System::System(string sConfig_file_)
+System::System(std::string sConfig_file_)
     :bStart_backend(true)
 {
-    string sConfig_file = sConfig_file_ + "simulate_config.yaml";
+    std::string sConfig_file = sConfig_file_ + "simulate_config.yaml";
 
     cout << "1 System() sConfig_file: " << sConfig_file << endl;
     readParameters(sConfig_file);
@@ -16,7 +16,7 @@ System::System(string sConfig_file_)
     trackerData[0].readIntrinsicParameter(sConfig_file);
 
     estimator.setParameter();
-    ofs_pose.open("./pose_output.txt",fstream::app | fstream::out);
+    ofs_pose.open("./pose_output.txt", fstream::out);
     if(!ofs_pose.is_open())
     {
         cerr << "ofs_pose is not open" << endl;
@@ -285,7 +285,7 @@ std::vector<std::pair<std::vector<ImuConstPtr>, ImgConstPtr>> System::getMeasure
 		/* 由于这组IMU信息没有pop，因此当前图形帧与下一图像帧会共用这组数据 */
         IMUs.emplace_back(imu_buf.front());
         if (IMUs.empty()){
-            std::cerr << "no imu between two image" << std::endl;
+            std::cerr << "No Imu Between Two Image" << std::endl;
         }
         // std::cout << "1 getMeasurements img t: " << fixed << img_msg->header
         //			<< " imu begin: "<< IMUs.front()->header 
@@ -424,10 +424,10 @@ void System::ProcessBackEnd()
             TicToc t_processImage;
             estimator.processImage(image, img_msg->header);
 
-
-            
+			/* 初始化时候的数据不加入到显示中 */
             if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
             {
+				/* 获取位姿 */
                 Vector3d p_wi;
                 Quaterniond q_wi;
                 q_wi = Quaterniond(estimator.Rs[WINDOW_SIZE]);
@@ -439,6 +439,14 @@ void System::ProcessBackEnd()
 					<< " stamp: " <<  dStamp 
 					<< " p_wi: " << p_wi.transpose() 
 					<< std::endl;
+
+				/* 获取路标点 */
+				auto features = estimator.f_manager;
+				auto itFeature = features.feature.begin();
+				for (;itFeature != features.feature.end(); ++itFeature)
+				{
+					vLandMark_to_draw.push_back(itFeature->world_pts);
+				}
 
 				/* 以TUM格式保存数据，方便轨迹精度评价 */
 				ofs_pose.precision(9);
@@ -479,7 +487,7 @@ void System::Draw()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         d_cam.Activate(s_cam);
-        glClearColor(0.75f, 0.75f, 0.75f, 0.75f);
+        glClearColor(1.0f, 1.0f, 1.0f, 0.7f);
         glColor3f(0, 0, 1);
         pangolin::glDrawAxis(3);
          
@@ -508,14 +516,30 @@ void System::Draw()
             glBegin(GL_POINTS);
             for(int i = 0; i < WINDOW_SIZE+1;++i)
             {
-                Vector3d p_wi = estimator.Ps[i];
+                Eigen::Vector3d p_wi = estimator.Ps[i];
                 glColor3f(1, 0, 0);
                 glVertex3d(p_wi[0],p_wi[1],p_wi[2]);
             }
             glEnd();
         }
+
+		/* 绘制路标点 */
+		if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
+		{
+			glPointSize(7);
+			glBegin(GL_POINTS);
+			int nLandMark_size = vLandMark_to_draw.size();
+			for (int i = 0; i < nLandMark_size; ++i)
+			{
+				Eigen::Vector3d point = vLandMark_to_draw[i];
+				glColor3f(0, 1, 0);
+				glVertex3d(point[0], point[1], point[2]);
+			}
+			glEnd();
+		}
+
         pangolin::FinishFrame();
-        cv::waitKey(50);   // sleep 50 ms
+        cv::waitKey(10);
     }
 
 #ifdef __APPLE__

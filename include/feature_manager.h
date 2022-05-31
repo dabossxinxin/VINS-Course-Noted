@@ -49,13 +49,15 @@ public:
   int start_frame;
   std::vector<FeaturePerFrame> feature_per_frame;
 
+  Eigen::Vector3d world_pts;
+
   int used_num;
   bool is_outlier;
   bool is_margin;
   double estimated_depth;
   int solve_flag; // 0 haven't solve yet; 1 solve succ; 2 solve fail;
 
-  Vector3d gt_p;
+  Eigen::Vector3d gt_p;
 
   FeaturePerId(int _feature_id, int _start_frame)
       : feature_id(_feature_id), start_frame(_start_frame),

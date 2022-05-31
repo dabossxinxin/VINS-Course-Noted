@@ -685,6 +685,8 @@ void Estimator::double2vector()
 		dep(i) = para_Feature[i][0];
 	}
     f_manager.setDepth(dep);
+	this->pubPointCloud();
+	
 	if (ESTIMATE_TD)
 	{
 		td = para_Td[0][0];
@@ -760,6 +762,28 @@ bool Estimator::failureDetection()
         //return true;
     }
     return false;
+}
+
+/*!
+*  @brief 向特征管理器中发布路标点
+*/
+void Estimator::pubPointCloud()
+{
+	for (auto &it_per_id : this->f_manager.feature)
+	{
+		int used_num;
+		used_num = it_per_id.feature_per_frame.size();
+		if (!(used_num >= 2 && it_per_id.start_frame < WINDOW_SIZE - 2))
+			continue;
+		if (it_per_id.solve_flag != 1)
+			continue;
+
+		int imu_i = it_per_id.start_frame;
+		Eigen::Vector3d pts_i = it_per_id.feature_per_frame[0].point*it_per_id.estimated_depth;
+		Eigen::Vector3d w_pts_i = this->Rs[imu_i] * (this->ric[0] * pts_i + this->tic[0]) + this->Ps[imu_i];
+		
+		it_per_id.world_pts = w_pts_i;
+	}
 }
 
 /*!

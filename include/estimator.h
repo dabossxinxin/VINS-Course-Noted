@@ -113,6 +113,11 @@ class Estimator
 	*/
     bool failureDetection();
 
+	/*!
+	*  @brief 向特征管理器中发布路标点
+	*/
+	void pubPointCloud();
+
     enum SolverFlag
     {
         INITIAL,
