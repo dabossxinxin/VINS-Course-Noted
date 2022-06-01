@@ -15,6 +15,8 @@
 #include <queue>
 #include <opencv2/core/eigen.hpp>
 
+#include <pangolin/pangolin.h>
+
 class Estimator
 {
   public:
@@ -117,6 +119,11 @@ class Estimator
 	*  @brief 向特征管理器中发布路标点
 	*/
 	void pubPointCloud();
+
+	/*!
+	*  @brief 获取滑窗中最后一帧的位姿
+	*/
+	void GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M);
 
     enum SolverFlag
     {

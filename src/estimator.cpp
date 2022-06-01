@@ -787,6 +787,37 @@ void Estimator::pubPointCloud()
 }
 
 /*!
+*  @brief 获取滑窗中最后一帧的位姿
+*/
+void Estimator::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M)
+{
+	Eigen::Matrix3d Rwc;
+	Eigen::Vector3d twc;
+	Rwc = Rs[WINDOW_SIZE] * ric[0];
+	twc = Ps[WINDOW_SIZE] + Rs[WINDOW_SIZE] * tic[0];
+
+	M.m[0] = Rwc(0, 0);
+	M.m[1] = Rwc(1, 0);
+	M.m[2] = Rwc(2, 0);
+	M.m[3] = 0.0;
+
+	M.m[4] = Rwc(0, 1);
+	M.m[5] = Rwc(1, 1);
+	M.m[6] = Rwc(2, 1);
+	M.m[7] = 0.0;
+
+	M.m[8] = Rwc(0, 2);
+	M.m[9] = Rwc(1, 2);
+	M.m[10] = Rwc(2, 2);
+	M.m[11] = 0.0;
+
+	M.m[12] = twc(0);
+	M.m[13] = twc(1);
+	M.m[14] = twc(2);
+	M.m[15] = 1.0;
+}
+
+/*!
 *  @brief 滑窗中去掉滑窗中的最老帧
 *  @detail 1：构造优化问题，并且将滑窗中所有帧的状态加入优化问题
 *          2：将最老帧对应的IMU测量以及视觉测量加入优化问题中

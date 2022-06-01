@@ -486,6 +486,10 @@ void System::Draw()
 	{
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		/*estimator.GetCurrentOpenGLCameraMatrix(currentTwc);
+		s_cam.SetModelViewMatrix(pangolin::ModelViewLookAt(-5, 0, 15, 7, 0, 0, 1.0, 0.0, 0.0));
+		s_cam.Follow(currentTwc);*/
+
         d_cam.Activate(s_cam);
         glClearColor(1.0f, 1.0f, 1.0f, 0.7f);
         glColor3f(0, 0, 1);
