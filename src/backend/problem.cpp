@@ -38,8 +38,14 @@ void Problem::LogoutVectorSize()
 */
 Problem::Problem(ProblemType problemType) :
     problemType_(problemType),deltaX_norm_threshold_(1e-6),
-	delta_chi_threshold_(1e-6)
+	delta_chi_threshold_(1e-6),
+	non_linear_method_(NonLinearMethod::Levenberge_Marquardt)
 {
+	std::cout << "Optimize Method: ";
+	if (non_linear_method_ == NonLinearMethod::Levenberge_Marquardt)
+		std::cout << "Levenberge_Marquardt" << std::endl;
+	else if (non_linear_method_ == NonLinearMethod::Dog_Leg)
+		std::cout << "Dog_Leg" << std::endl;
     LogoutVectorSize();
     verticies_marg_.clear();
 }
@@ -498,16 +504,56 @@ void Problem::MakeHessian()
 void Problem::SolveLinearSystem()
 {
     /* 求解通用问题线性方程 */
-    if (problemType_ == ProblemType::GENERIC_PROBLEM) {
+    if (problemType_ == ProblemType::GENERIC_PROBLEM) 
+	{
         /* Hessian矩阵添加Lambda参数 */
         MatXX H = Hessian_;
-        for (size_t i = 0; i < Hessian_.cols(); ++i) {
-            H(i, i) += currentLambda_;
-        }
-        //delta_x_ = PCGSolver(H, b_, H.rows() * 2);
-        delta_x_ = H.ldlt().solve(b_);
+		if (non_linear_method_ == NonLinearMethod::Levenberge_Marquardt) 
+		{
+			for (size_t i = 0; i < Hessian_.cols(); ++i) {
+				H(i, i) += currentLambda_;
+			}
+			//delta_x_ = PCGSolver(H, b_, H.rows() * 2);
+			delta_x_ = H.ldlt().solve(b_);
+		}
+		else if (non_linear_method_ == NonLinearMethod::Dog_Leg) 
+		{
+			double beta = 0.;
+			double alpha = b_.squaredNorm() / (b_.transpose()*Hessian_*b_);
+			delta_x_sd_ = alpha*b_;
+			delta_x_gn_ = H.ldlt().solve(b_);
+			if (delta_x_gn_.norm() >= dogleg_radius_) 
+			{
+				if (delta_x_sd_.norm() >= dogleg_radius_) 
+				{
+					delta_x_ = b_*(dogleg_radius_ / b_.norm());
+				}
+				else 
+				{
+					const VecX& a = delta_x_sd_;
+					const VecX& b = delta_x_gn_;
+					double c = a.transpose()*(b - a);
+					if (c <= 0) 
+					{
+						beta = (-c + (std::sqrt)(c*c + (b - a).squaredNorm()*
+							(dogleg_radius_*dogleg_radius_ - a.squaredNorm()))) /
+							(b - a).squaredNorm();
+					}
+					else 
+					{
+						beta = (dogleg_radius_*dogleg_radius_ - a.squaredNorm()) /
+							(c + (std::sqrt)(c*c + (b - a).squaredNorm()*
+							(dogleg_radius_*dogleg_radius_ - a.squaredNorm())));
+					}
+				}
+				delta_x_ = delta_x_sd_ + beta*(delta_x_gn_ - delta_x_sd_);
+			}
+		}
+        
     /* 求解SLAM问题线性方程：利用舒尔补加速SLAM问题的求解 */
-    } else {
+    } 
+	else 
+	{
         //TicToc t_Hmminv;
         /* 将信息矩阵分解为位姿部分Hpp和路标点部分Hmm */
         int reserve_size = ordering_poses_;
@@ -543,6 +589,41 @@ void Problem::SolveLinearSystem()
         delta_x_ll = Hmm_inv * (bmm - Hmp * delta_x_pp);
         delta_x_.tail(marg_size) = delta_x_ll;
         //std::cout << "schur time cost: "<< t_Hmminv.toc()<<std::endl;
+	
+		/* 将LM的结果当作初始值，使用Dog_Leg方法获取迭代步长 */
+		if (non_linear_method_ == NonLinearMethod::Dog_Leg) 
+		{
+			double beta = 0.;
+			double alpha = b_.squaredNorm() / (b_.transpose()*Hessian_*b_);
+			delta_x_sd_ = alpha*b_;
+			delta_x_gn_ = delta_x_;
+			if (delta_x_gn_.norm() >= dogleg_radius_) 
+			{
+				if (delta_x_sd_.norm() >= dogleg_radius_) 
+				{
+					delta_x_ = b_*(dogleg_radius_ / b_.norm());
+				}
+				else 
+				{
+					const VecX& a = delta_x_sd_;
+					const VecX& b = delta_x_gn_;
+					double c = a.transpose()*(b - a);
+					if (c <= 0) 
+					{
+						beta = (-c + (std::sqrt)(c*c + (b - a).squaredNorm()*
+							(dogleg_radius_*dogleg_radius_ - a.squaredNorm()))) / 
+							(b - a).squaredNorm();
+					}
+					else 
+					{
+						beta = (dogleg_radius_*dogleg_radius_ - a.squaredNorm()) /
+							(c + (std::sqrt)(c*c + (b - a).squaredNorm()*
+							(dogleg_radius_*dogleg_radius_ - a.squaredNorm())));
+					}
+				}
+				delta_x_ = delta_x_sd_ + beta*(delta_x_gn_ - delta_x_sd_);
+			}
+		}
     }
 }
 
@@ -608,6 +689,7 @@ void Problem::ComputeLambdaInitLM()
     ni_ = 2.; 
     currentLambda_ = 0.0;
     currentChi_ = 0.0;
+	dogleg_radius_ = 1.0;
 
 	/* 计算初始的损失函数值 */
     for (auto edge: edges_) 
@@ -631,7 +713,7 @@ void Problem::ComputeLambdaInitLM()
 
 	/* 计算初始的阻尼因子 */
 	double tau = 1e-5;
-    maxDiagonal = std::min(1e+10, maxDiagonal);
+    maxDiagonal = std::min(1e10, maxDiagonal);
     currentLambda_ = tau * maxDiagonal;
 }
 
@@ -664,42 +746,85 @@ void Problem::RemoveLambdaHessianLM() {
 */
 bool Problem::IsGoodStepInLM() 
 {
-    double scale = 0;
-    scale = 0.5* delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
-    scale += 1e-6; 
+	if (non_linear_method_ == NonLinearMethod::Levenberge_Marquardt) 
+	{
+		double scale = 0;
+		scale = 0.5* delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
+		scale += 1e-6;
 
-    /* 状态量更新后，重新计算损失函数值 */
-    double tempChi = 0.0;
-    for (auto edge: edges_) 
-	{
-        edge.second->ComputeResidual();
-        tempChi += edge.second->RobustChi2();
-    }
-	if (err_prior_.size() > 0)
-	{
-		tempChi += err_prior_.norm();
+		double tmpChi = 0.0;
+		for (auto edge : edges_)
+		{
+			edge.second->ComputeResidual();
+			tmpChi += edge.second->RobustChi2();
+		}
+		if (err_prior_.size() > 0)
+		{
+			tmpChi += err_prior_.norm();
+		}
+		tmpChi *= 0.5;
+		double rho = (currentChi_ - tmpChi) / scale;
+
+		if (rho > 0 && isfinite(tmpChi))
+		{
+			double alpha = 1. - pow((2 * rho - 1), 3);
+			alpha = std::min(alpha, 2. / 3.);
+			double scaleFactor = (std::max)(1. / 3., alpha);
+			currentLambda_ *= scaleFactor;
+			ni_ = 2;
+			currentChi_ = tmpChi;
+			return true;
+		}
+		else
+		{
+			currentLambda_ *= ni_;
+			ni_ *= 2;
+			return false;
+		}
 	}
-    tempChi *= 0.5;
-    double rho = (currentChi_ - tempChi) / scale;
+	else if (non_linear_method_ == NonLinearMethod::Dog_Leg) 
+	{
+		double scale = 0.;
+		scale = delta_x_.transpose()*b_;
+		scale -= 0.5*delta_x_.transpose()*Hessian_*delta_x_;
+		scale += 1e-6;
+		
+		double tmpChi = 0.;
+		for (auto edge : edges_)
+		{
+			edge.second->ComputeResidual();
+			tmpChi += edge.second->RobustChi2();
+		}
+		if (err_prior_.size() > 0)
+		{
+			tmpChi += err_prior_.squaredNorm();
+		}
+		tmpChi *= 0.5;
 
-	/* 损失函数在下降 */
-    if (rho > 0 && isfinite(tempChi))
-    {
-        double alpha = 1. - pow((2 * rho - 1), 3);
-        alpha = std::min(alpha, 2. / 3.);
-        double scaleFactor = (std::max)(1. / 3., alpha);
-        currentLambda_ *= scaleFactor;
-        ni_ = 2;
-        currentChi_ = tempChi;
-        return true;
-    } 
-	/* 损失函数并没有下降 */
+		double rho = (currentChi_ - tmpChi) / scale;
+		if (rho > 0 && isfinite(tmpChi)) 
+		{
+			currentChi_ = tmpChi;
+			if (rho > 0.75) 
+			{
+				dogleg_radius_ = (std::max)(dogleg_radius_, 3.0*delta_x_.norm());
+			}
+			else if (rho < 0.25) 
+			{
+				dogleg_radius_ /= 2.0;
+			}
+			return true;
+		}
+		else 
+		{
+			return false;
+		}
+	}
 	else 
 	{
-        currentLambda_ *= ni_;
-        ni_ *= 2;
-        return false;
-    }
+		return false;
+	}
+    
 }
 
 /*!

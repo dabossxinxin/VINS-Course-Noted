@@ -78,7 +78,7 @@ public:
 
 int main() {
 	/* 真实参数值&数据点数量&高斯噪声方差 */
-	int N = 100;
+	int N = 1000;
 	double w_sigma = 1.;
     double a=1.0, b=2.0, c=1.0;
 
@@ -88,15 +88,17 @@ int main() {
 
     /* 构建优化问题 */
     Problem problem(Problem::ProblemType::GENERIC_PROBLEM);
+	problem.SetNonLinearMethod(myslam::backend::Problem::NonLinearMethod::Dog_Leg);
     std::shared_ptr< CurveFittingVertex > vertex(new CurveFittingVertex());
     /* 设置待优化顶点初始值 */
     vertex->SetParameters(Eigen::Vector3d (0.,0.,0.));
 	/* 将待估计顶点加入到优化问题中 */
     problem.AddVertex(vertex);
+	
 
     /* 构造N次观测 */
     for (int i = 0; i < N; ++i) {
-        double x = i/100.;
+        double x = i/1000.;
         double n = noise(generator);
         double y = std::exp( a*x*x + b*x + c ) + n;
         /* 构建边并将其加入到优化问题中 */

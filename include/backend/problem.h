@@ -23,7 +23,13 @@ class Problem {
 public:
     /*! * @brief 保证向量空间内存对齐 */
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-    
+	
+	/*! * @brief 非线性优化方法 */
+	enum NonLinearMethod {
+		Levenberge_Marquardt = 0,
+		Dog_Leg
+	};
+
     /**
      * 问题类型：SLAM问题/通用问题
      * SLAM问题：1、Pose和Landmark是区分开的，Hessian以稀疏方式存储
@@ -31,7 +37,7 @@ public:
      * 通用问题：hessian是稠密矩阵，不做特殊处理
      */
     enum class ProblemType {
-        SLAM_PROBLEM,
+        SLAM_PROBLEM = 0,
         GENERIC_PROBLEM
     };
 
@@ -186,6 +192,15 @@ public:
 	void SetDeltaXThreshold(const double& deltaX_norm_threshold)
 	{
 		deltaX_norm_threshold_ = deltaX_norm_threshold;
+	}
+
+	/*!
+	*  @brief 设置非线性优化计算策略
+	*  @param[in]	method	优化策略
+	*/
+	void SetNonLinearMethod(const NonLinearMethod& method)
+	{
+		non_linear_method_ = method;
 	}
 
 	/*!
@@ -349,7 +364,9 @@ private:
     /*!< @brief LM迭代退出阈值条件 */
     double stopThresholdLM_;    
     /*!< @brief 控制Lambda缩放大小 */
-    double ni_;                 
+    double ni_;     
+	/*!< @brief DogLeg方法置信域 */
+	double dogleg_radius_;
 
     /*!< @brief 非线性优化问题类型 */
     ProblemType problemType_;
@@ -360,6 +377,10 @@ private:
     VecX b_;
     /*!< @brief 优化问题步长 */
     VecX delta_x_;
+	/*!< @brief 最速下降法步长 */
+	VecX delta_x_sd_;
+	/*!< @brief 高斯牛顿法步长 */
+	VecX delta_x_gn_;
 
     /*!< @brief 先验Hessian矩阵 */
     MatXX H_prior_;
@@ -419,6 +440,9 @@ private:
 	double deltaX_norm_threshold_;
 	/*!< @brief 优化退出条件：损失函数变化值 */
 	double delta_chi_threshold_;
+
+	NonLinearMethod non_linear_method_;
+
 };
 
 }
