@@ -1127,9 +1127,3 @@ namespace myslam {
 
 	}
 }
-
-
-
-
-
-
