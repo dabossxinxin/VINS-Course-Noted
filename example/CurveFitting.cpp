@@ -88,7 +88,7 @@ int main() {
 
 	/* 构建优化问题 */
 	Problem problem(Problem::ProblemType::GENERIC_PROBLEM);
-	problem.SetNonLinearMethod(myslam::backend::Problem::NonLinearMethod::Dog_Leg);
+	problem.SetNonLinearMethod(myslam::backend::Problem::NonLinearMethod::Levenberge_Marquardt);
 	std::shared_ptr< CurveFittingVertex > vertex(new CurveFittingVertex());
 	/* 设置待优化顶点初始值 */
 	vertex->SetParameters(Eigen::Vector3d(0., 0., 0.));

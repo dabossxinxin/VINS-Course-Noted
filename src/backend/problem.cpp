@@ -529,8 +529,8 @@ namespace myslam {
 				{
 					double beta = 0.;
 					double alpha = b_.squaredNorm() / (b_.transpose()*Hessian_*b_);
-					delta_x_sd_ = alpha*b_; std::cout << "delta sd: " << delta_x_sd_ << std::endl;
-					delta_x_gn_ = Hessian_.ldlt().solve(b_); std::cout << "delta gn: " << delta_x_gn_ << std::endl;
+					delta_x_sd_ = alpha*b_; //std::cout << "delta sd: " << delta_x_sd_ << std::endl;
+					delta_x_gn_ = Hessian_.ldlt().solve(b_); //std::cout << "delta gn: " << delta_x_gn_ << std::endl;
 					if (delta_x_gn_.norm() >= dogleg_radius_)
 					{
 						if (delta_x_sd_.norm() >= dogleg_radius_)
