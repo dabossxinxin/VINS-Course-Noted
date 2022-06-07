@@ -516,18 +516,21 @@ namespace myslam {
 			if (problemType_ == ProblemType::GENERIC_PROBLEM)
 			{
 				/* Hessian矩阵添加Lambda参数 */
-				MatXX H = Hessian_;
-				for (size_t i = 0; i < Hessian_.cols(); ++i) {
-					H(i, i) += currentLambda_;
+				if (non_linear_method_ == NonLinearMethod::Levenberge_Marquardt)
+				{
+					MatXX H = Hessian_;
+					for (size_t i = 0; i < Hessian_.cols(); ++i) {
+						H(i, i) += currentLambda_;
+					}
+					//delta_x_ = PCGSolver(H, b_, H.rows() * 2);
+					delta_x_ = H.ldlt().solve(b_);
 				}
-				//delta_x_ = PCGSolver(H, b_, H.rows() * 2);
-				delta_x_ = H.ldlt().solve(b_);
-				if (non_linear_method_ == NonLinearMethod::Dog_Leg)
+				else if (non_linear_method_ == NonLinearMethod::Dog_Leg)
 				{
 					double beta = 0.;
 					double alpha = b_.squaredNorm() / (b_.transpose()*Hessian_*b_);
-					delta_x_sd_ = alpha*b_;
-					delta_x_gn_ = delta_x_;
+					delta_x_sd_ = alpha*b_; std::cout << "delta sd: " << delta_x_sd_ << std::endl;
+					delta_x_gn_ = Hessian_.ldlt().solve(b_); std::cout << "delta gn: " << delta_x_gn_ << std::endl;
 					if (delta_x_gn_.norm() >= dogleg_radius_)
 					{
 						if (delta_x_sd_.norm() >= dogleg_radius_)
@@ -551,8 +554,13 @@ namespace myslam {
 									(c + (std::sqrt)(c*c + (b - a).squaredNorm()*
 									(dogleg_radius_*dogleg_radius_ - a.squaredNorm())));
 							}
+							delta_x_ = delta_x_sd_ + beta*(delta_x_gn_ - delta_x_sd_);
 						}
-						delta_x_ = delta_x_sd_ + beta*(delta_x_gn_ - delta_x_sd_);
+
+					}
+					else
+					{
+						delta_x_ = delta_x_gn_;
 					}
 				}
 
@@ -626,8 +634,8 @@ namespace myslam {
 									(c + (std::sqrt)(c*c + (b - a).squaredNorm()*
 									(dogleg_radius_*dogleg_radius_ - a.squaredNorm())));
 							}
+							delta_x_ = delta_x_sd_ + beta*(delta_x_gn_ - delta_x_sd_);
 						}
-						delta_x_ = delta_x_sd_ + beta*(delta_x_gn_ - delta_x_sd_);
 					}
 				}
 			}
@@ -823,11 +831,13 @@ namespace myslam {
 				}
 				else
 				{
+					dogleg_radius_ /= 2.0;
 					return false;
 				}
 			}
 			else
 			{
+				std::cerr << "We Don't Have This Enum Parameter." << std::endl;
 				return false;
 			}
 
