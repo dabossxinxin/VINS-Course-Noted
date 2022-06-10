@@ -1,4 +1,4 @@
-#include <stdio.h>
+ï»¿#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
@@ -20,11 +20,11 @@ std::string sConfig_path = "D:\\Code\\VINS-Course-Noted\\config\\";
 std::shared_ptr<System> pSystem;
 
 /*!
-*  @brief ÏµÍ³¶ÁÈ¡IMUÊý¾Ý
+*  @brief ÏµÍ³ï¿½ï¿½È¡IMUï¿½ï¿½ï¿½ï¿½
 */
 void PubImuData()
 {
-	/* ÉèÖÃIMUÊý¾Ý¾ä±ú */
+	/* ï¿½ï¿½ï¿½ï¿½IMUï¿½ï¿½ï¿½Ý¾ï¿½ï¿½ */
 	std::string sImu_data_file = "D:\\Code\\VINS-Course-Noted\\config\\simulate\\imu_pose.txt";
 	std::cout << "1 PubImuData Start sImu_data_file: " << sImu_data_file << std::endl;
 	std::ifstream fsImu;
@@ -34,33 +34,33 @@ void PubImuData()
 		return;
 	}
 
-	/* ¶ÁÈ¡IMUÊý¾Ý */
+	/* ï¿½ï¿½È¡IMUï¿½ï¿½ï¿½ï¿½ */
 	double tmp = 0.;
 	std::string sImu_line;
 	double dStampNSec = 0.0;
 	Eigen::Vector3d vAcc;
 	Eigen::Vector3d vGyr;
 	while (std::getline(fsImu, sImu_line) && !sImu_line.empty()) {
-		/* ¶ÁÈ¡IMUÊý¾Ý */
+		/* ï¿½ï¿½È¡IMUï¿½ï¿½ï¿½ï¿½ */
 		std::istringstream ssImuData(sImu_line);
 		ssImuData >> dStampNSec;
 		for (int it = 0; it < 7; ++it) ssImuData >> tmp;
 		ssImuData >> vGyr.x() >> vGyr.y() >> vGyr.z() >> vAcc.x() >> vAcc.y() >> vAcc.z();
-		/* ½«IMUÊý¾Ý¼ÓÈëµ½ÏµÍ³ÖÐ */
+		/* ï¿½ï¿½IMUï¿½ï¿½ï¿½Ý¼ï¿½ï¿½ëµ½ÏµÍ³ï¿½ï¿½ */
 		pSystem->PubImuData(dStampNSec, vGyr, vAcc);
 		//usleep(5000*nDelayTimes);
 		cv::waitKey(3);
 	}
-	/* ¹Ø±ÕIMU¾ä±ú */
+	/* ï¿½Ø±ï¿½IMUï¿½ï¿½ï¿½ */
 	fsImu.close();
 }
 
 /*!
-*  @brief ÏµÍ³¶ÁÈ¡ImageÊý¾Ý
+*  @brief ÏµÍ³ï¿½ï¿½È¡Imageï¿½ï¿½ï¿½ï¿½
 */
 void PubImageData()
 {
-	/* ÉèÖÃÍ¼ÏñÊý¾Ý¾ä±ú */
+	/* ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½Ý¾ï¿½ï¿½ */
 	std::string sImage_file = "D:\\Code\\VINS-Course-Noted\\config\\simulate\\cam_pose.txt";
 	std::cout << "1 PubImageData Start sImage_file: " << sImage_file << std::endl;
 	std::ifstream fsImage;
@@ -70,18 +70,18 @@ void PubImageData()
 		return;
 	}
 
-	/* ¶ÁÈ¡Í¼ÏñÊý¾Ý */
+	/* ï¿½ï¿½È¡Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 	std::string sImage_line;
 	double dStampNSec;
 	std::string sImgFileName;
 	int n = 0;
 	while (std::getline(fsImage, sImage_line) && !sImage_line.empty()) {
-		/* »ñÈ¡Í¼Ïñ¶ÁÈ¡Â·¾¶ */
+		/* ï¿½ï¿½È¡Í¼ï¿½ï¿½ï¿½È¡Â·ï¿½ï¿½ */
 		std::istringstream ssImuData(sImage_line);
 		ssImuData >> dStampNSec;
 		std::string all_points_file_name =
 			"D:\\Code\\VINS-Course-Noted\\config\\simulate\\keyframe\\all_points_" + std::to_string(n) + ".txt";
-		
+
 		std::vector<cv::Point2f> featurePoints;
 		std::ifstream fIn;
 		fIn.open(all_points_file_name);
@@ -93,21 +93,21 @@ void PubImageData()
 				ss << s;
 
 				double tmp = 0.;
-				for (int it = 0; it < 4;++it) ss >> tmp;
-				
+				for (int it = 0; it < 4; ++it) ss >> tmp;
+
 				double px, py;
 				ss >> px >> py;
 				cv::Point2f pt(px, py);
 				featurePoints.push_back(pt);
 			}
 		}
-		/* ½«Í¼ÏñÊý¾Ý¼ÓÈëµ½VIOÏµÍ³ÖÐ */
+		/* ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½Ý¼ï¿½ï¿½ëµ½VIOÏµÍ³ï¿½ï¿½ */
 		pSystem->PubImageData(dStampNSec, featurePoints);
 		//usleep(50000*nDelayTimes);
 		cv::waitKey(50);
 		n++;
 	}
-	/* ¹Ø±ÕÍ¼Ïñ¾ä±ú */
+	/* ï¿½Ø±ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ */
 	fsImage.close();
 }
 
