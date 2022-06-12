@@ -49,7 +49,7 @@ void PubImuData()
 		/* ��IMU���ݼ��뵽ϵͳ�� */
 		pSystem->PubImuData(dStampNSec, vGyr, vAcc);
 		//usleep(5000*nDelayTimes);
-		cv::waitKey(3);
+		cv::waitKey(1);
 	}
 	/* �ر�IMU��� */
 	fsImu.close();

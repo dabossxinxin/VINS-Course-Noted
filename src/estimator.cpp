@@ -1192,6 +1192,7 @@ void Estimator::problemSolve()
         }
     }
 
+	//problem.SetNonLinearMethod(myslam::backend::Problem::NonLinearMethod::Dog_Leg);
     problem.Solve(10);
 
     /* 更新先验信息矩阵 */

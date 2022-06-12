@@ -12,6 +12,9 @@ add_definitions(-D__windows__)
 add_definitions(-DUSE_OPENMP)
 add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
 
+option(CUDA "Enable use of CUDA linear algebra solvers." ON)
+
+include(FindGTest)
 include(FindGlew)
 include(FindGLOG)
 include(FindCeres)
@@ -20,6 +23,22 @@ include(FindEigen3)
 include(FindOpenCV)
 include(FindPangolin)
 
+if(CUDA)
+  find_package(CUDA QUIET)
+  if(CUDA_FOUND)
+    message("-- Found CUDA version ${CUDA_VERSION}: "
+		"${CUDA_LIBRARIES};"
+		"${CUDA_cusolver_LIBRARY};"
+		"${CUDA_cusparse_LIBRARY}")  
+  else(CUDA_FOUND)
+    message("-- Did not find CUDA library,disabling CUDA support")
+  endif(CUDA_FOUND)
+else(CUDA)
+  message("-- Building without CUDA.")
+endif(CUDA)
+
+include_directories(${GTest_INCLUDE_DIRS})
+include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(${GLOG_INCLUDE_DIRS})
 include_directories(${GLEW_INCLUDE_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
@@ -127,12 +146,25 @@ ADD_LIBRARY(VIOdometry STATIC
 )
 set_target_properties(VIOdometry PROPERTIES COMPILE_FLAGS "/EHsc")
 
+message("CUDA LIBRARIES: " ${CUDA_LIBRARIES})
+
 target_link_libraries(VIOdometry CameraModel)
 target_link_libraries(VIOdometry opengl32.lib)
+target_link_libraries(VIOdometry 
+	${CUDA_LIBRARIES} 
+	${CUDA_cublas_LIBRARY} 
+	${CUDA_cusolver_LIBRARY}
+	${CUDA_cusparse_LIBRARY}
+)
 target_link_libraries(VIOdometry debug ${GLEW_DEBUG_LIB} 		optimized ${GLEW_RELEASE_LIB})
 target_link_libraries(VIOdometry debug ${Pangolin_DEBUG_LIB}	optimized ${Pangolin_RELEASE_LIB})
 target_link_libraries(VIOdometry debug ${OpenCV3_DEBUG_LIB}		optimized ${OpenCV3_RELEASE_LIB})
 target_link_libraries(VIOdometry debug ${CERES_DEBUG_LIB} 		optimized ${CERES_RELEASE_LIB})
+
+foreach(_var ${GTest_LIBRARIES})
+    target_link_libraries(VIOdometry debug ${GTest_LIB_DIR}/${_var}_debug.lib
+									optimized ${GTest_LIB_DIR}/${_var}_release.lib)
+endforeach()
 
 ########################################################
 #													   #	
@@ -152,3 +184,6 @@ target_link_libraries(MonoOptimization VIOdometry)
 
 add_executable(RunSimulate example/run_simulate.cpp)
 target_link_libraries(RunSimulate VIOdometry)
+
+add_executable(CUDAGTest example/cuda_gtest.cpp)
+target_link_libraries(CUDAGTest VIOdometry)

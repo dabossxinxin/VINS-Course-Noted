@@ -2,6 +2,7 @@
 #include <fstream>
 #include <Eigen/Dense>
 #include <iomanip>
+#include <thread>
 #include "backend/problem.h"
 #include "utility/tic_toc.h"
 
@@ -41,11 +42,7 @@ namespace myslam {
 			delta_chi_threshold_(1e-6),
 			non_linear_method_(NonLinearMethod::Levenberge_Marquardt)
 		{
-			std::cout << "Optimize Method: ";
-			if (non_linear_method_ == NonLinearMethod::Levenberge_Marquardt)
-				std::cout << "Levenberge_Marquardt" << std::endl;
-			else if (non_linear_method_ == NonLinearMethod::Dog_Leg)
-				std::cout << "Dog_Leg" << std::endl;
+			NUM_THREADS = 4;
 			LogoutVectorSize();
 			verticies_marg_.clear();
 		}
@@ -271,6 +268,12 @@ namespace myslam {
 				std::cerr << "\nCannot Solve Problem Without Edges Or Verticies" << std::endl;
 				return false;
 			}
+			/* 打印优化策略 */
+			std::cout << "Optimize Method: ";
+			if (non_linear_method_ == NonLinearMethod::Levenberge_Marquardt)
+				std::cout << "Levenberge_Marquardt" << std::endl;
+			else if (non_linear_method_ == NonLinearMethod::Dog_Leg)
+				std::cout << "Dog_Leg" << std::endl;
 			/* 记录LM求解的时间 */
 			TicToc t_solve;
 			/* 统计优化变量的维度：为构建Hessian矩阵做准备 */
@@ -409,6 +412,59 @@ namespace myslam {
 		}
 
 		/*!
+		*  @brief 使用多线程技术构造Hessian矩阵
+		*  @detail 构造方法为遍历优化问题中的边，进而通过边
+		*          对顶点雅可比计算出Hessian矩阵指定位置的值
+		*/
+		void Problem::ThreadMakeHessian(Problem::ThreadsStruct* threadsstruct)
+		{
+			ThreadsStruct* p = ((Problem::ThreadsStruct*)threadsstruct);
+
+			for (auto &edge : p->sub_edges)
+			{
+				edge->ComputeResidual();
+				edge->ComputeJacobians();
+				
+				auto jacobians = edge->Jacobians();
+				auto verticies = edge->Verticies();
+
+				for (size_t i = 0; i < verticies.size(); ++i)
+				{
+					auto v_i = verticies[i];
+					if (v_i->IsFixed()) continue;
+
+					auto jacobian_i = jacobians[i];
+					ulong index_i = v_i->OrderingId();
+					ulong dim_i = v_i->LocalDimension();
+
+					/* 为当前边添加鲁棒核函数 */
+					double drho = 1.0;
+					MatXX robustInfo(edge->Information().rows(), edge->Information().cols());
+					edge->RobustInfo(drho, robustInfo);
+
+					MatXX JtW = jacobian_i.transpose() * robustInfo;
+					for (size_t j = i; j < verticies.size(); ++j)
+					{
+						auto v_j = verticies[j];
+						if (v_j->IsFixed()) continue;
+
+						auto jacobian_j = jacobians[j];
+						ulong index_j = v_j->OrderingId();
+						ulong dim_j = v_j->LocalDimension();
+
+						MatXX hessian = JtW * jacobian_j;
+
+						p->H.block(index_i, index_j, dim_i, dim_j) += hessian;
+						if (j != i) {
+							p->H.block(index_j, index_i, dim_j, dim_i) += hessian.transpose();
+						}
+					}
+					p->b.segment(index_i, dim_i) -= drho * jacobian_i.transpose()* edge->Information() * edge->Residual();	
+				}
+			}
+		}
+
+		/*!
 		*  @brief 构造大Hessian矩阵
 		*  @detail 1：遍历所有edge，构造关于优化变量的Hessian矩阵
 		*          2：若有先验信息，将先验信息与所构造的Hessian相加
@@ -421,61 +477,87 @@ namespace myslam {
 			/* 1 通用问题：ordering_generic_=odering_generic_ */
 			/* 2 SLAM问题：ordering_generic_=ordering_pose_+ordering_landmark_ */
 			ulong size = ordering_generic_;
-			MatXX H(MatXX::Zero(size, size));
-			VecX b(VecX::Zero(size));
+			b_ = VecX::Zero(size);
+			Hessian_ = MatXX::Zero(size, size);
 
 			/* 遍历edge_：计算Hessian矩阵 */
-#ifdef USE_OPENMP
-//#pragma omp parallel for
-#endif
-			for (auto &edge : edges_)
+//			for (auto &edge : edges_)
+//			{
+//				edge.second->ComputeResidual();
+//				edge.second->ComputeJacobians();
+//
+//				auto jacobians = edge.second->Jacobians();
+//				auto verticies = edge.second->Verticies();
+//				assert(jacobians.size() == verticies.size());
+////#ifdef USE_OPENMP
+////#pragma omp parallel for
+////#endif
+//				for (size_t i = 0; i < verticies.size(); ++i)
+//				{
+//					auto v_i = verticies[i];
+//
+//					/* 若顶点固定，则对应雅可比为0 */
+//					if (v_i->IsFixed()) continue;
+//
+//					auto jacobian_i = jacobians[i];
+//					ulong index_i = v_i->OrderingId();
+//					ulong dim_i = v_i->LocalDimension();
+//
+//					/* 为当前边添加鲁棒核函数 */
+//					double drho = 1.0;
+//					MatXX robustInfo(edge.second->Information().rows(), edge.second->Information().cols());
+//					edge.second->RobustInfo(drho, robustInfo);
+//
+//					MatXX JtW = jacobian_i.transpose() * robustInfo;
+//					for (size_t j = i; j < verticies.size(); ++j)
+//					{
+//						auto v_j = verticies[j];
+//
+//						if (v_j->IsFixed()) continue;
+//
+//						auto jacobian_j = jacobians[j];
+//						ulong index_j = v_j->OrderingId();
+//						ulong dim_j = v_j->LocalDimension();
+//
+//						assert(v_j->OrderingId() != -1);
+//						MatXX hessian = JtW * jacobian_j;
+//
+//						Hessian_.block(index_i, index_j, dim_i, dim_j).noalias() += hessian;
+//						if (j != i) {
+//							Hessian_.block(index_j, index_i, dim_j, dim_i).noalias() += hessian.transpose();
+//						}
+//					}
+//					b_.segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edge.second->Information() * edge.second->Residual();
+//				}
+//			}
+//			t_hessian_cost_ += t_h.toc();
+
+			/* 使用多个线程构造Hessian矩阵 */ 
+			std::thread* tids = new std::thread[NUM_THREADS];
+			ThreadsStruct* threadsstruct = new ThreadsStruct[NUM_THREADS];
+			const int reserve_size = edges_.size() / NUM_THREADS + 1;
+			for (int it = 0; it < NUM_THREADS; ++it)
 			{
-				edge.second->ComputeResidual();
-				edge.second->ComputeJacobians();
-
-				auto jacobians = edge.second->Jacobians();
-				auto verticies = edge.second->Verticies();
-				assert(jacobians.size() == verticies.size());
-				for (size_t i = 0; i < verticies.size(); ++i)
-				{
-					auto v_i = verticies[i];
-
-					/* 若顶点固定，则对应雅可比为0 */
-					if (v_i->IsFixed()) continue;
-
-					auto jacobian_i = jacobians[i];
-					ulong index_i = v_i->OrderingId();
-					ulong dim_i = v_i->LocalDimension();
-
-					/* 为当前边添加鲁棒核函数 */
-					double drho = 1.0;
-					MatXX robustInfo(edge.second->Information().rows(), edge.second->Information().cols());
-					edge.second->RobustInfo(drho, robustInfo);
-
-					MatXX JtW = jacobian_i.transpose() * robustInfo;
-					for (size_t j = i; j < verticies.size(); ++j)
-					{
-						auto v_j = verticies[j];
-
-						if (v_j->IsFixed()) continue;
-
-						auto jacobian_j = jacobians[j];
-						ulong index_j = v_j->OrderingId();
-						ulong dim_j = v_j->LocalDimension();
-
-						assert(v_j->OrderingId() != -1);
-						MatXX hessian = JtW * jacobian_j;
-
-						H.block(index_i, index_j, dim_i, dim_j).noalias() += hessian;
-						if (j != i) {
-							H.block(index_j, index_i, dim_j, dim_i).noalias() += hessian.transpose();
-						}
-					}
-					b.segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edge.second->Information() * edge.second->Residual();
-				}
+				threadsstruct[it].sub_edges.reserve(reserve_size);
 			}
-			Hessian_ = H;
-			b_ = b;
+			int i_count = 0;
+			for (auto edge : edges_)
+			{
+				threadsstruct[i_count++].sub_edges.push_back(edge.second);
+				i_count = i_count%NUM_THREADS;
+			}
+			for (int it = 0; it < NUM_THREADS; ++it)
+			{
+				threadsstruct[it].H = Eigen::MatrixXd::Zero(size, size);
+				threadsstruct[it].b = Eigen::VectorXd::Zero(size);
+				tids[it] = std::thread(&Problem::ThreadMakeHessian, this, &(threadsstruct[it]));
+			}
+			for (int it = 0; it < NUM_THREADS; ++it)
+			{
+				tids[it].join();
+				Hessian_ += threadsstruct[it].H;
+				b_ += threadsstruct[it].b;
+			}
 			t_hessian_cost_ += t_h.toc();
 
 			if (H_prior_.rows() > 0)
@@ -529,8 +611,8 @@ namespace myslam {
 				{
 					double beta = 0.;
 					double alpha = b_.squaredNorm() / (b_.transpose()*Hessian_*b_);
-					delta_x_sd_ = alpha*b_; //std::cout << "delta sd: " << delta_x_sd_ << std::endl;
-					delta_x_gn_ = Hessian_.ldlt().solve(b_); //std::cout << "delta gn: " << delta_x_gn_ << std::endl;
+					delta_x_sd_ = alpha*b_;
+					delta_x_gn_ = Hessian_.ldlt().solve(b_);
 					if (delta_x_gn_.norm() >= dogleg_radius_)
 					{
 						if (delta_x_sd_.norm() >= dogleg_radius_)
@@ -703,7 +785,7 @@ namespace myslam {
 			ni_ = 2.;
 			currentLambda_ = 0.0;
 			currentChi_ = 0.0;
-			dogleg_radius_ = 1.0;
+			dogleg_radius_ = 2.0;
 
 			/* 计算初始的损失函数值 */
 			for (auto edge : edges_)

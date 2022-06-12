@@ -24,6 +24,12 @@ public:
     /*! * @brief 保证向量空间内存对齐 */
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 	
+	struct ThreadsStruct {
+		std::vector<std::shared_ptr<Edge>> sub_edges;
+		Eigen::MatrixXd H;
+		Eigen::VectorXd b;
+	};
+
 	/*! * @brief 非线性优化方法 */
 	enum NonLinearMethod {
 		Levenberge_Marquardt = 0,
@@ -167,6 +173,11 @@ public:
         H_prior_ = H;
     }
 
+	void SetThreadsNum(const int num)
+	{
+		NUM_THREADS = num;
+	}
+
 	/*!
 	*  @brief 设置优化系统的先验b矩阵
 	*  @param[in]	b	系统先验b矩阵
@@ -262,6 +273,13 @@ private:
 	*          对顶点雅可比计算出Hessian矩阵指定位置的值  
 	*/
     void MakeHessian();
+
+	/*!
+	*  @brief 使用多线程技术构造Hessian矩阵
+	*  @detail 构造方法为遍历优化问题中的边，进而通过边
+	*          对顶点雅可比计算出Hessian矩阵指定位置的值
+	*/
+	void ThreadMakeHessian(Problem::ThreadsStruct* threadsstruct);
 
     /*!
 	*  @brief Schur求解SBA问题
@@ -443,6 +461,7 @@ private:
 
 	NonLinearMethod non_linear_method_;
 
+	int NUM_THREADS;
 };
 
 }
