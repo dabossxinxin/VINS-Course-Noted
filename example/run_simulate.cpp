@@ -15,7 +15,7 @@ using namespace cv;
 using namespace Eigen;
 
 const int nDelayTimes = 2;
-std::string sConfig_path = "D:\\Code\\VINS-Course-Noted\\config\\";
+std::string sConfig_path = "F:\\Users\\Admin\\Desktop\\git\\VINS-Course-Noted\\config\\";
 
 std::shared_ptr<System> pSystem;
 
@@ -25,7 +25,7 @@ std::shared_ptr<System> pSystem;
 void PubImuData()
 {
 	/* ����IMU���ݾ�� */
-	std::string sImu_data_file = "D:\\Code\\VINS-Course-Noted\\config\\simulate\\imu_pose.txt";
+	std::string sImu_data_file = sConfig_path + "simulate\\imu_pose.txt";
 	std::cout << "1 PubImuData Start sImu_data_file: " << sImu_data_file << std::endl;
 	std::ifstream fsImu;
 	fsImu.open(sImu_data_file.c_str());
@@ -61,7 +61,7 @@ void PubImuData()
 void PubImageData()
 {
 	/* ����ͼ�����ݾ�� */
-	std::string sImage_file = "D:\\Code\\VINS-Course-Noted\\config\\simulate\\cam_pose.txt";
+	std::string sImage_file = sConfig_path + "simulate\\cam_pose.txt";
 	std::cout << "1 PubImageData Start sImage_file: " << sImage_file << std::endl;
 	std::ifstream fsImage;
 	fsImage.open(sImage_file.c_str());
@@ -80,7 +80,7 @@ void PubImageData()
 		std::istringstream ssImuData(sImage_line);
 		ssImuData >> dStampNSec;
 		std::string all_points_file_name =
-			"D:\\Code\\VINS-Course-Noted\\config\\simulate\\keyframe\\all_points_" + std::to_string(n) + ".txt";
+			sConfig_path + "simulate\\keyframe\\all_points_" + std::to_string(n) + ".txt";
 
 		std::vector<cv::Point2f> featurePoints;
 		std::ifstream fIn;
@@ -169,7 +169,6 @@ void DrawIMGandGLinMainThrd() {
 
 int main(int argc, char **argv)
 {
-	sConfig_path = "D:\\Code\\VINS-Course-Noted\\config\\";
 	pSystem.reset(new System(sConfig_path));
 
 	std::thread thd_BackEnd(&System::ProcessBackEnd, pSystem);

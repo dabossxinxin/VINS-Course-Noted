@@ -39,7 +39,7 @@ namespace myslam {
 		*/
 		Problem::Problem(ProblemType problemType) :
 			problemType_(problemType), deltaX_norm_threshold_(1e-6),
-			delta_chi_threshold_(1e-6),
+			delta_chi_threshold_(1e-8),
 			non_linear_method_(NonLinearMethod::Levenberge_Marquardt)
 		{
 			NUM_THREADS = 4;
@@ -330,7 +330,7 @@ namespace myslam {
 				iter++;
 
 				/*优化退出条件3：与上一步残差相比，已经不怎么下降了*/
-				if (last_chi_ - currentChi_ < delta_chi_threshold_)
+				if ((last_chi_ - currentChi_) / currentChi_ < delta_chi_threshold_)
 				{
 					stop = true;
 				}
@@ -424,7 +424,7 @@ namespace myslam {
 			{
 				edge->ComputeResidual();
 				edge->ComputeJacobians();
-				
+
 				auto jacobians = edge->Jacobians();
 				auto verticies = edge->Verticies();
 
@@ -459,7 +459,7 @@ namespace myslam {
 							p->H.block(index_j, index_i, dim_j, dim_i) += hessian.transpose();
 						}
 					}
-					p->b.segment(index_i, dim_i) -= drho * jacobian_i.transpose()* edge->Information() * edge->Residual();	
+					p->b.segment(index_i, dim_i) -= drho * jacobian_i.transpose()* edge->Information() * edge->Residual();
 				}
 			}
 		}
@@ -532,7 +532,7 @@ namespace myslam {
 //			}
 //			t_hessian_cost_ += t_h.toc();
 
-			/* 使用多个线程构造Hessian矩阵 */ 
+			/* 使用多个线程构造Hessian矩阵 */
 			std::thread* tids = new std::thread[NUM_THREADS];
 			ThreadsStruct* threadsstruct = new ThreadsStruct[NUM_THREADS];
 			const int reserve_size = edges_.size() / NUM_THREADS + 1;
@@ -965,8 +965,7 @@ namespace myslam {
 		/*!
 		*  @brief 边缘化掉所有与margVertexs相链接的edge：包括视觉edge与IMU edge
 		*  @detail 若某个LandMark与Pose相连，但是又不想边缘化，那就把Edge去掉
-		*          通过这个函数的内容可以发现这里边缘化始终维护了相机Pose相关的信息，
-		*		   而对于路标点的先验信息，则没有维护，是否VINS中也是这个思路呢？？
+		*          通过这个函数的内容可以发现这里边缘化始终维护了相机Pose相关的信息
 		*  @param[in]	margVertex	当前优化问题中需要边缘化掉的状态量
 		*  @param[in]	pose_dim	当前优化问题中所有帧的P、V、Q、Bg、Ba的维度
 		*/
@@ -997,47 +996,78 @@ namespace myslam {
 			MatXX H_marg(MatXX::Zero(cols, cols));
 			VecX b_marg(VecX::Zero(cols));
 
-			/* 遍历所有edge，构造Hessian矩阵以及b矩阵 */
+			/* 根据残差项的数量确定是否需要多线程构造Hessian矩阵 */
 			int edge_cnt = 0;
-			for (auto edge : marg_edges)
+			const int MINIMUM_EDGE_NUM = 100;
+			if (cols < MINIMUM_EDGE_NUM)
 			{
-				edge->ComputeResidual();
-				edge->ComputeJacobians();
-				auto jacobians = edge->Jacobians();
-				auto verticies = edge->Verticies();
-				edge_cnt++;
-
-				assert(jacobians.size() == verticies.size());
-				for (size_t i = 0; i < verticies.size(); ++i)
+				/* 遍历所有edge，构造Hessian矩阵以及b矩阵 */
+				for (auto edge : marg_edges)
 				{
-					auto v_i = verticies[i];
-					auto jacobian_i = jacobians[i];
-					ulong index_i = v_i->OrderingId();
-					ulong dim_i = v_i->LocalDimension();
+					edge->ComputeResidual();
+					edge->ComputeJacobians();
+					auto jacobians = edge->Jacobians();
+					auto verticies = edge->Verticies();
+					edge_cnt++;
 
-					/* 获取鲁棒核函数的相关信息 */
-					double drho;
-					MatXX robustInfo(edge->Information().rows(), edge->Information().cols());
-					edge->RobustInfo(drho, robustInfo);
-
-					for (size_t j = i; j < verticies.size(); ++j)
+					assert(jacobians.size() == verticies.size());
+					for (size_t i = 0; i < verticies.size(); ++i)
 					{
-						auto v_j = verticies[j];
-						auto jacobian_j = jacobians[j];
-						ulong index_j = v_j->OrderingId();
-						ulong dim_j = v_j->LocalDimension();
+						auto v_i = verticies[i];
+						auto jacobian_i = jacobians[i];
+						ulong index_i = v_i->OrderingId();
+						ulong dim_i = v_i->LocalDimension();
 
-						MatXX hessian = jacobian_i.transpose() * robustInfo * jacobian_j;
+						/* 获取鲁棒核函数的相关信息 */
+						double drho;
+						MatXX robustInfo(edge->Information().rows(), edge->Information().cols());
+						edge->RobustInfo(drho, robustInfo);
 
-						assert(hessian.rows() == v_i->LocalDimension() && hessian.cols() == v_j->LocalDimension());
-
-						H_marg.block(index_i, index_j, dim_i, dim_j) += hessian;
-						if (j != i)
+						for (size_t j = i; j < verticies.size(); ++j)
 						{
-							H_marg.block(index_j, index_i, dim_j, dim_i) += hessian.transpose();
+							auto v_j = verticies[j];
+							auto jacobian_j = jacobians[j];
+							ulong index_j = v_j->OrderingId();
+							ulong dim_j = v_j->LocalDimension();
+
+							MatXX hessian = jacobian_i.transpose() * robustInfo * jacobian_j;
+
+							H_marg.block(index_i, index_j, dim_i, dim_j) += hessian;
+							if (j != i)
+							{
+								H_marg.block(index_j, index_i, dim_j, dim_i) += hessian.transpose();
+							}
 						}
+						b_marg.segment(index_i, dim_i) -= drho * jacobian_i.transpose() * edge->Information() * edge->Residual();
 					}
-					b_marg.segment(index_i, dim_i) -= drho * jacobian_i.transpose() * edge->Information() * edge->Residual();
+				}
+			}
+			else
+			{
+				int i_count = 0;
+				std::thread* tids = new std::thread[NUM_THREADS];
+				ThreadsStruct *threadsstruct = new ThreadsStruct[NUM_THREADS];
+				for (int it = 0; it < NUM_THREADS; ++it)
+				{
+					threadsstruct[it].sub_edges.reserve(marg_edges.size());
+				}
+				for (auto edge : marg_edges)
+				{
+					edge_cnt++;
+					threadsstruct[i_count++].sub_edges.push_back(edge);
+					i_count = i_count%NUM_THREADS;
+				}
+				for (int it = 0; it < NUM_THREADS; ++it)
+				{
+					threadsstruct[it].H = Eigen::MatrixXd::Zero(cols, cols);
+					threadsstruct[it].b = Eigen::VectorXd::Zero(cols);
+					tids[it] = std::thread(&Problem::ThreadMakeHessian, this, &(threadsstruct[it]));
+				}
+				for (int it = 0; it < NUM_THREADS; ++it)
+				{
+					tids[it].join();
+					H_marg += threadsstruct[it].H;
+					b_marg += threadsstruct[it].b;
 				}
 			}
 			std::cout << "Edge Factor Cnt: " << edge_cnt << std::endl;
@@ -1077,7 +1107,7 @@ namespace myslam {
 				b_marg += b_prior_;
 			}
 
-			/* 边缘化Pose和SpeedBias */
+			/* 边缘化最老帧或次新帧的Pose和SpeedBias */
 			int marg_dim = 0;
 			for (int k = margVertexs.size() - 1; k >= 0; --k)
 			{

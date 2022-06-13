@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8.3)
+Ôªøcmake_minimum_required(VERSION 3.8.3)
 project(vins_estimator)
 
 set(CMAKE_BUILD_TYPE "Release")
@@ -51,7 +51,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 ########################################################
 #													   #
-#				  ±‡“Îcamera modelø‚			       #
+#				  ÁºñËØëcamera modelÂ∫ì			       #
 #													   #	
 ########################################################
 file(GLOB CalibHdrs			"./include/camera_models/calib/*.h")
@@ -106,7 +106,7 @@ endforeach()
 
 ########################################################
 #													   #
-#			±‡“Îvisual inertial odometryø‚			   #
+#			ÁºñËØëvisual inertial odometryÂ∫ì			   #
 #													   #	
 ########################################################
 file(GLOB VioHdrs			"./include/*.h")
@@ -168,7 +168,7 @@ endforeach()
 
 ########################################################
 #													   #	
-#					±‡“Îø…÷¥––Œƒº˛			           #
+#					ÁºñËØëÂèØÊâßË°åÊñá‰ª∂			           #
 #													   #	
 ########################################################
 add_executable(RunEuroc example/run_euroc.cpp)
