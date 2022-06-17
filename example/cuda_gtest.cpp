@@ -10,7 +10,8 @@
 #include "cuda_runtime.h"
 //#include "cusolverDn.h"
 #include "cublas.h"
-#include "utility/concurrent_queue_test.h"
+//#include "utility/concurrent_queue_test.h"
+#include "utility/thread_pool_test.h"
 
 //TEST(CUDADenseCholesky, InvalidOptionOnCreate) {
 //	Options options;
