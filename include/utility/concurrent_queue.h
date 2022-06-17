@@ -39,7 +39,7 @@ public:
 	{
 		CHECK(value != nullptr);
 
-		std::unique_lock<std::mutex> lock(murex_);
+		std::unique_lock<std::mutex> lock(mutex_);
 		work_pending_condition_.wait(lock,
 			[&]() {
 			return !(wait_ && queue_.empty());
@@ -79,7 +79,7 @@ private:
 		}
 
 		*value = queue_.front();
-		queue.pop();
+		queue_.pop();
 
 		return true;
 	}

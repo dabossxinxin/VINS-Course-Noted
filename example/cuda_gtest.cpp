@@ -10,6 +10,7 @@
 #include "cuda_runtime.h"
 //#include "cusolverDn.h"
 #include "cublas.h"
+#include "utility/concurrent_queue_test.h"
 
 //TEST(CUDADenseCholesky, InvalidOptionOnCreate) {
 //	Options options;
@@ -86,51 +87,51 @@ void printMatrix(int m, int n, const double* A, int lda, const char* name) {
 }
 
 int main(int argc, char* argv[]) {
-	//testing::InitGoogleTest(&argc, argv);
-	//int node = RUN_ALL_TESTS();
+	testing::InitGoogleTest(&argc, argv);
+	int node = RUN_ALL_TESTS();
 
-	float *h_A = (float*)malloc(N*N * sizeof(float));
-	float *h_B = (float*)malloc(N*N * sizeof(float));
-	float *h_C = (float*)malloc(N*N * sizeof(float));
-	float *h_C_ref = (float*)malloc(N*N * sizeof(float));
-	float *d_A, *d_B, *d_C;
+	//float *h_A = (float*)malloc(N*N * sizeof(float));
+	//float *h_B = (float*)malloc(N*N * sizeof(float));
+	//float *h_C = (float*)malloc(N*N * sizeof(float));
+	//float *h_C_ref = (float*)malloc(N*N * sizeof(float));
+	//float *d_A, *d_B, *d_C;
 
-	for (int i = 0; i < N*N; i++) {
-		h_A[i] = rand() / (float)RAND_MAX;
-		h_B[i] = rand() / (float)RAND_MAX;
-	}
+	//for (int i = 0; i < N*N; i++) {
+	//	h_A[i] = rand() / (float)RAND_MAX;
+	//	h_B[i] = rand() / (float)RAND_MAX;
+	//}
 
-	printf("SimpleCuBals Test Running..\n");
+	//printf("SimpleCuBals Test Running..\n");
 
-	clock_t t_gpu_start = clock();
-	cublasInit();
-	cublasAlloc(N*N, sizeof(float), (void**)&d_A);
-	cublasAlloc(N*N, sizeof(float), (void**)&d_B);
-	cublasAlloc(N*N, sizeof(float), (void**)&d_C);
-	cublasSetVector(N*N, sizeof(float), h_A, 1, d_A, 1);
-	cublasSetVector(N*N, sizeof(float), h_B, 1, d_B, 1);
+	//clock_t t_gpu_start = clock();
+	//cublasInit();
+	//cublasAlloc(N*N, sizeof(float), (void**)&d_A);
+	//cublasAlloc(N*N, sizeof(float), (void**)&d_B);
+	//cublasAlloc(N*N, sizeof(float), (void**)&d_C);
+	//cublasSetVector(N*N, sizeof(float), h_A, 1, d_A, 1);
+	//cublasSetVector(N*N, sizeof(float), h_B, 1, d_B, 1);
 
-	cudaThreadSynchronize();
-	cublasSgemm('n', 'n', N, N, N, 1.0f, d_A, N, d_B, N, 0.0f, d_C, N);
-	cudaThreadSynchronize();
-	cublasGetVector(N*N, sizeof(float), d_C, 1, h_C, 1);
-	clock_t t_gpu_end = clock();
-	float gpu_t = t_gpu_end - t_gpu_start;
+	//cudaThreadSynchronize();
+	//cublasSgemm('n', 'n', N, N, N, 1.0f, d_A, N, d_B, N, 0.0f, d_C, N);
+	//cudaThreadSynchronize();
+	//cublasGetVector(N*N, sizeof(float), d_C, 1, h_C, 1);
+	//clock_t t_gpu_end = clock();
+	//float gpu_t = t_gpu_end - t_gpu_start;
 
-	simple_sgemm_eigen(h_A, h_B, h_C_ref);
+	//simple_sgemm_eigen(h_A, h_B, h_C_ref);
 
-	printf("N=%4d, GPU=%.6fms(%.3fGflops)\n",
-		N, gpu_t, 1e-9*N*N*N * 2 / gpu_t);
+	//printf("N=%4d, GPU=%.6fms(%.3fGflops)\n",
+	//	N, gpu_t, 1e-9*N*N*N * 2 / gpu_t);
 
-	/* 检查CPU结果与GPU结果是否相等 */
-	float ref_norm = 0.;
-	float error_norm = 0.;
-	for (int i = 0; i < N*N; i++) {
-		float diff = h_C_ref[i] - h_C[i];
-		error_norm += diff*diff;
-		ref_norm += h_C_ref[i] * h_C_ref[i];
-	}
-	printf("Test %s\n", (sqrtf(error_norm / ref_norm) < 1e-6) ? "PASSED" : "FAILED");
+	///* 检查CPU结果与GPU结果是否相等 */
+	//float ref_norm = 0.;
+	//float error_norm = 0.;
+	//for (int i = 0; i < N*N; i++) {
+	//	float diff = h_C_ref[i] - h_C[i];
+	//	error_norm += diff*diff;
+	//	ref_norm += h_C_ref[i] * h_C_ref[i];
+	//}
+	//printf("Test %s\n", (sqrtf(error_norm / ref_norm) < 1e-6) ? "PASSED" : "FAILED");
 
 	system("pause");
 	return 0;
