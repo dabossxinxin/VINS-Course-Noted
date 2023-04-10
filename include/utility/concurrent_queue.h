@@ -1,4 +1,6 @@
-﻿#include <condition_variable>
+﻿#pragma once
+
+#include <condition_variable>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -11,8 +13,11 @@ class ConcurrentQueue
 public:
 	ConcurrentQueue() = default;
 
-	// atomically push an element onto queue.
-	// if a thread was waiting for an element, wake it up
+	/*!
+	*  @brief 使用原子操作将元素放入队列中
+	*  @detail 将元素放入并发队列后，通知线程处理
+	*  @param[in]	value	待插入队列的元素
+	*/
 	void Push(const T& value)
 	{
 		std::lock_guard<std::mutex> lock(mutex_);
@@ -20,9 +25,12 @@ public:
 		work_pending_condition_.notify_one();
 	}
 
-	// atomically pop an element from the queue.
-	// if an element is present,return true.
-	// if the queue was empty, return false.
+	/*!
+	*  @brief 使用原子操作将队列头部元素删除
+	*  @detail 若并发队列为空，则返回false
+	*  @param[in]	value	待插入队列的元素
+	*  @return		bool	是否成功删除队列元素的标志
+	*/
 	bool Pop(T* value)
 	{
 		CHECK(value != nullptr);
@@ -40,6 +48,7 @@ public:
 		CHECK(value != nullptr);
 
 		std::unique_lock<std::mutex> lock(mutex_);
+		/* 当任务为空且wait为true时，阻塞线程 */
 		work_pending_condition_.wait(lock,
 			[&]() {
 			return !(wait_ && queue_.empty());
@@ -67,10 +76,13 @@ public:
 	}
 
 private:
-	// Pops an element from the queue.
-	// if an element is present, return true.
-	// if the queue was empty, return false.
-	// not thread-safe. must acquire the lock before calling.
+	/*!
+	*  @brief 将队列头部元素删除
+	*  @detail 若并发队列为空，则返回false
+	*          若并发队列不为空，则返回true
+	*  @param[in/out]	value	队列中待删除元素
+	*  @return			bool	是否成功删除队列元素的标志
+	*/
 	bool PopUnlocked(T* value)
 	{
 		if (queue_.empty())
@@ -85,10 +97,7 @@ private:
 	}
 
 	std::queue<T> queue_;
-	// if true, signals that callers of wait block waiting to pop an element off the queue.
 	bool wait_{ true };
-
-	// the mutex controls read and write access to the queue_ and stop_ varaible.
 	std::mutex mutex_;
 	std::condition_variable work_pending_condition_;
 };

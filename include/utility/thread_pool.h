@@ -1,4 +1,6 @@
-﻿#include <mutex>
+﻿#pragma once
+
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -38,16 +40,16 @@ public:
 	// returns the current size of the thread pool
 	int Size();
 private:
-	// Main loop for the threads whitch blocks on the task queue until work becoms
+	// Main loop for the threads whitch blocks on the task queue until work becomes
 	// available. it will return if and only if stop has been called.
 	void ThreadMainLoop();
 
 	// signals all the threads to stop.it does not block until the threads are finished.
 	void Stop();
-
-	// the queue that stores the units of work available for the thread pool. the 
-	// task queue maintains its own thread safety.
+	
+	/*!< @brief 保存线程池中需要处理的所有任务队列 */
 	ConcurrentQueue<std::function<void()>> task_queue_;
+	/*!< @brief 保存线程池中所有的用于处理任务的线程 */
 	std::vector<std::thread> thread_pool_;
 	std::mutex thread_pool_mutex_;
 };

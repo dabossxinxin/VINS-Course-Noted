@@ -380,7 +380,7 @@ CataCamera::estimateIntrinsics(const cv::Size& boardSize,
     double v0 = params.imageHeight() / 2.0;
 
     double gamma0 = 0.0;
-    double minReprojErr = std::numeric_limits<double>::max();
+	double minReprojErr = FLT_MAX;
 
     std::vector<cv::Mat> rvecs, tvecs;
     rvecs.assign(objectPoints.size(), cv::Mat());
@@ -453,7 +453,7 @@ CataCamera::estimateIntrinsics(const cv::Size& boardSize,
         }
     }
 
-    if (gamma0 <= 0.0 && minReprojErr >= std::numeric_limits<double>::max())
+    if (gamma0 <= 0.0 && minReprojErr >= FLT_MAX)
     {
         std::cout << "[" << params.cameraName() << "] "
                   << "# INFO: CataCamera model fails with given data. " << std::endl;

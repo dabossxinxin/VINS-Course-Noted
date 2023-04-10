@@ -320,7 +320,7 @@ EquidistantCamera::estimateIntrinsics(const cv::Size& boardSize,
     double u0 = params.imageWidth() / 2.0;
     double v0 = params.imageHeight() / 2.0;
 
-    double minReprojErr = std::numeric_limits<double>::max();
+    double minReprojErr = FLT_MAX;
 
     std::vector<cv::Mat> rvecs, tvecs;
     rvecs.assign(objectPoints.size(), cv::Mat());
@@ -397,7 +397,7 @@ EquidistantCamera::estimateIntrinsics(const cv::Size& boardSize,
 		radius = nullptr;
     }
 
-    if (f0 <= 0.0 && minReprojErr >= std::numeric_limits<double>::max())
+    if (f0 <= 0.0 && minReprojErr >= FLT_MAX)
     {
         std::cout << "[" << params.cameraName() << "] "
                   << "# INFO: kannala-Brandt model fails with given data. " << std::endl;

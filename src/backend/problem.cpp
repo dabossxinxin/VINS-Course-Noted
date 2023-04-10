@@ -4,7 +4,9 @@
 #include <iomanip>
 #include <thread>
 #include "backend/problem.h"
+
 #include "utility/tic_toc.h"
+#include "utility/thread_pool.h"
 
 #ifdef USE_OPENMP
 #include <omp.h>
@@ -45,6 +47,7 @@ namespace myslam {
 			NUM_THREADS = 4;
 			LogoutVectorSize();
 			verticies_marg_.clear();
+			thread_pool_.Resize(NUM_THREADS);
 		}
 
 		/*!
@@ -338,7 +341,9 @@ namespace myslam {
 			}
 			std::cout << "\tSolve Problem Cost: " << t_solve.toc() << " ms" << std::endl;
 			std::cout << "\tMake Hessian Cost: " << t_hessian_cost_ << " ms" << std::endl;
+			std::cout << "\tMake Task Cost: " << t_construct_task_ << " ms" << std::endl;
 			t_hessian_cost_ = 0.;
+			t_construct_task_ = 0.;
 			return true;
 		}
 
@@ -533,6 +538,7 @@ namespace myslam {
 //			t_hessian_cost_ += t_h.toc();
 
 			/* 使用多个线程构造Hessian矩阵 */
+			TicToc t_construct;
 			std::thread* tids = new std::thread[NUM_THREADS];
 			ThreadsStruct* threadsstruct = new ThreadsStruct[NUM_THREADS];
 			const int reserve_size = edges_.size() / NUM_THREADS + 1;
@@ -552,6 +558,7 @@ namespace myslam {
 				threadsstruct[it].b = Eigen::VectorXd::Zero(size);
 				tids[it] = std::thread(&Problem::ThreadMakeHessian, this, &(threadsstruct[it]));
 			}
+			t_construct_task_ += t_construct.toc();
 			for (int it = 0; it < NUM_THREADS; ++it)
 			{
 				tids[it].join();
@@ -809,7 +816,7 @@ namespace myslam {
 
 			/* 计算初始的阻尼因子 */
 			double tau = 1e-5;
-			maxDiagonal = std::min(1e10, maxDiagonal);
+			maxDiagonal = (std::min)(1e10, maxDiagonal);
 			currentLambda_ = tau * maxDiagonal;
 		}
 
@@ -864,7 +871,7 @@ namespace myslam {
 				if (rho > 0 && isfinite(tmpChi))
 				{
 					double alpha = 1. - pow((2 * rho - 1), 3);
-					alpha = std::min(alpha, 2. / 3.);
+					alpha = (std::min)(alpha, 2. / 3.);
 					double scaleFactor = (std::max)(1. / 3., alpha);
 					currentLambda_ *= scaleFactor;
 					ni_ = 2;

@@ -7,13 +7,14 @@
 #include "eigen_types.h"
 #include "edge.h"
 #include "vertex.h"
+#include "utility/thread_pool.h"
 
 typedef unsigned long ulong;
 
 namespace myslam {
 namespace backend {
 
-typedef unsigned long ulong;
+	typedef unsigned long ulong;
 //typedef std::unordered_map<unsigned long, std::shared_ptr<Vertex>> HashVertex;
 typedef std::map<unsigned long, std::shared_ptr<Vertex>>                HashVertex;
 typedef std::unordered_map<unsigned long, std::shared_ptr<Edge>>        HashEdge;
@@ -453,15 +454,19 @@ private:
     double t_hessian_cost_ = 0.0;
     /*!< @brief PCG线性方程求解的时间 */
     double t_PCGsovle_cost_ = 0.0;
+	double t_construct_task_ = 0.0;
 
 	/*!< @brief 优化退出条件：状态量更新值 */
 	double deltaX_norm_threshold_;
 	/*!< @brief 优化退出条件：损失函数变化值 */
 	double delta_chi_threshold_;
 
+	/*!< @brief 非线性优化迭代方法：LM、Dog-Leg */
 	NonLinearMethod non_linear_method_;
 
+	/*!< @brief 构造线程池支持Hessian矩阵构造 */
 	int NUM_THREADS;
+	ThreadPool thread_pool_;
 };
 
 }

@@ -173,17 +173,17 @@ endforeach()
 ########################################################
 add_executable(RunEuroc example/run_euroc.cpp)
 set_target_properties(RunEuroc PROPERTIES COMPILE_FLAGS "/EHsc")
-target_link_libraries(RunEuroc VIOdometry -lpthread) 
+target_link_libraries(RunEuroc VIOdometry ${CERES_RELEASE_LIB}) 
 
 add_executable(CurveFitting example/CurveFitting.cpp)
 set_target_properties(CurveFitting PROPERTIES COMPILE_FLAGS "/EHsc")
-target_link_libraries(CurveFitting VIOdometry)
+target_link_libraries(CurveFitting VIOdometry ${CERES_RELEASE_LIB})
 
 add_executable(MonoOptimization example/MonoOptimization.cpp)
-target_link_libraries(MonoOptimization VIOdometry)
+target_link_libraries(MonoOptimization VIOdometry ${CERES_RELEASE_LIB})
 
 add_executable(RunSimulate example/run_simulate.cpp)
-target_link_libraries(RunSimulate VIOdometry)
+target_link_libraries(RunSimulate VIOdometry ${CERES_RELEASE_LIB})
 
 add_executable(CUDAGTest example/cuda_gtest.cpp)
-target_link_libraries(CUDAGTest VIOdometry)
+target_link_libraries(CUDAGTest VIOdometry ${CERES_RELEASE_LIB})

@@ -3,6 +3,11 @@
 //#include <gtest/gmock.h>
 #include <gtest/gtest.h>
 
+/*!
+*  @brief 测试并发队列插入删除操作，单个线程操作
+*  @detail 测试并发队列能否正常删除元素
+*          测试并发队列能否按照正确顺序删除元素
+*/
 TEST(ConcurrentQueue, PushPop)
 {
 	ConcurrentQueue<int> queue;
@@ -19,6 +24,11 @@ TEST(ConcurrentQueue, PushPop)
 	}
 }
 
+/*!
+*  @brief 测试并发队列在StopWaiter后插入删除操作，单个线程操作
+*  @detail 测试并发队列能否正常删除元素
+*          测试并发队列能否按照正确顺序删除元素
+*/
 TEST(ConcurrentQueue, PushPopAfterStopWaiters)
 {
 	ConcurrentQueue<int> queue;

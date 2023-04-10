@@ -32,3 +32,38 @@ TEST(ThreadPool, AddTask)
 
 	EXPECT_EQ(num_tasks, value);
 }
+
+TEST(ThreadPool,ResizingDuringExecution) 
+{
+	int value = 0;
+	const int num_tasks = 100;
+	{
+		ThreadPool thread_pool(2);
+
+		std::condition_variable condition;
+		std::mutex mutex;
+
+		std::unique_lock<std::mutex> lock(mutex);
+
+		auto task = [&]() {
+			std::lock_guard<std::mutex> lock(mutex);
+			++value;
+			condition.notify_all();
+		};
+
+		for (int i = 0; i < num_tasks / 2; ++i) {
+			thread_pool.AddTask(task);
+		}
+
+		// Resize the thread pool while tasks are executing.
+		thread_pool.Resize(3);
+
+		for (int i = 0; i < num_tasks / 2; ++i) {
+			thread_pool.AddTask(task);
+		}
+
+		condition.wait(lock, [&]() {return value == num_tasks; });
+	}
+
+	EXPECT_EQ(num_tasks, value);
+}
